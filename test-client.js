@@ -58,9 +58,19 @@ setTimeout(() => {
   sendRequest("tools/list", {}, 4);
 }, 4000);
 
+// 9. Send resources/list request
+setTimeout(() => {
+  sendRequest("resources/list", {}, 5);
+}, 5000);
+
+// 10. Send resources/read request for morning-report guidelines
+setTimeout(() => {
+  sendRequest("resources/read", { uri: "metadata://skills/morning-report/guidelines" }, 6);
+}, 6000);
+
 // Exit
 setTimeout(() => {
   console.log("Shutting down test...");
   serverProcess.kill();
   process.exit(0);
-}, 6000);
+}, 8000);
