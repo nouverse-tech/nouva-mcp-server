@@ -22,6 +22,12 @@ Rencana pengembangan **Nouva MCP (Model Context Protocol) Server** sebagai repos
 └─────────────────────────────────┘
 ```
 
+### Aturan Emas Migrasi Skill ke MCP
+* **Self-Contained & Native**: Semua logic, parser, auth, dan eksekusi skill yang dimigrasi harus ditulis/dikonversi menjadi script **native** di dalam repositori MCP server.
+* **Gak Boleh Numpuk / Reference External**: Dilarang keras membuat tool MCP yang hanya bertindak sebagai wrapper untuk memanggil script Python/Bash/JS di luar repositori (misalnya memanggil file di folder root `/root/.openclaw/workspace/skills/...`). Seluruh dependencies, logic, dan helper file harus dideklarasikan di dalam folder skill masing-masing di bawah `src/skills/` agar server MCP bener-bener portable dan detachable.
+* **Secrets Management**: Semua secrets (seperti Google API tokens, credentials) disimpan di dalam folder `.secrets/` di root repositori MCP server dan **wajib dimasukkan ke `.gitignore`**. Jangan pernah melakukan hardcode credentials di dalam file skill, dan hindari membaca file credential dari path global sistem (seperti `/root/.openclaw/workspace/secrets/`) agar server MCP tetap portable.
+* **SSH Keys Exception**: Untuk SSH key default host (seperti `/root/.ssh/id_ed25519_nouva`), diperbolehkan untuk dibaca langsung dari default path-nya karena sifatnya adalah konfigurasi environment host, bukan application-level secret.
+
 ---
 
 ## Rencana Fase Pengembangan
