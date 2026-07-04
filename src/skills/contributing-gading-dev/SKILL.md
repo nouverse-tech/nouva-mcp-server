@@ -35,4 +35,7 @@ When writing or rewriting posts, emulate Gading's authentic engineering style:
 - **Casual & Unstructured Flow**: Keep it natural, conversational, and slightly unstructured. Use casual warkop-style language ("gw/lu", "anjir", "kejedut", "rollback") and humor. Avoid clean/perfect AI structures and corporate buzzwords ("scalable", "robust", "efficient").
 
 ## Publishing Workflow
-After writing the draft files, publish them using the `gading_dev_publish` tool.
+Setelah menulis draft artikel di workspace, jalankan alur berikut:
+1. Panggil tool `gading_dev_review` untuk membuat branch dan Pull Request (PR) ke repo `gading.dev`.
+2. Setelah disetujui (approved), jalankan tool `gading_dev_publish` untuk meng-merge PR tersebut ke branch `main` dan otomatis mentrigger workflow sync Cloudinary.
+

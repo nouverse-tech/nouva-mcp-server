@@ -50,29 +50,17 @@ setTimeout(() => {
 }, 3000);
 
 // 4. Send tools/call request for run_safe_command (safe command)
-setTimeout(() => {
-  sendRequest("tools/call", { name: "run_safe_command", arguments: { command: "git status" } }, 4);
-}, 4000);
-
 // 5. Send tools/call request for run_safe_command (blocked command)
+// 6. Send resources/list request
+// 7. Send resources/read request for contributing-gading-dev guidelines
+// 8. Send tools/list request to verify review and publish tools
 setTimeout(() => {
-  sendRequest("tools/call", { name: "run_safe_command", arguments: { command: "rm -rf test" } }, 5);
-}, 5000);
-
-// 6. Send tools/call request for gading_dev_get_guidelines (removed, replaced by resource)
-// 7. Send resources/list request
-setTimeout(() => {
-  sendRequest("resources/list", {}, 6);
-}, 6000);
-
-// 8. Send resources/read request for contributing-gading-dev guidelines
-setTimeout(() => {
-  sendRequest("resources/read", { uri: "metadata://skills/contributing-gading-dev/guidelines" }, 7);
-}, 7000);
+  sendRequest("tools/list", {}, 4);
+}, 4000);
 
 // Exit
 setTimeout(() => {
   console.log("Shutting down test...");
   serverProcess.kill();
   process.exit(0);
-}, 9000);
+}, 6000);
