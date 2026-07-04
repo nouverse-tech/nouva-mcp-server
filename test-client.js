@@ -59,14 +59,20 @@ setTimeout(() => {
   sendRequest("tools/call", { name: "run_safe_command", arguments: { command: "rm -rf test" } }, 5);
 }, 5000);
 
-// 6. Send tools/call request for gading_dev_get_guidelines
+// 6. Send tools/call request for gading_dev_get_guidelines (removed, replaced by resource)
+// 7. Send resources/list request
 setTimeout(() => {
-  sendRequest("tools/call", { name: "gading_dev_get_guidelines", arguments: {} }, 6);
+  sendRequest("resources/list", {}, 6);
 }, 6000);
+
+// 8. Send resources/read request for contributing-gading-dev guidelines
+setTimeout(() => {
+  sendRequest("resources/read", { uri: "metadata://skills/contributing-gading-dev/guidelines" }, 7);
+}, 7000);
 
 // Exit
 setTimeout(() => {
   console.log("Shutting down test...");
   serverProcess.kill();
   process.exit(0);
-}, 8000);
+}, 9000);

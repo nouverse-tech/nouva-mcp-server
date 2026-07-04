@@ -3,12 +3,14 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
+  ListResourcesRequestSchema,
+  ReadResourceRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { exec } from "child_process";
 import { promisify } from "util";
 import fs from "fs/promises";
 import path from "path";
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
 
 const execAsync = promisify(exec);
 
@@ -24,59 +26,133 @@ const server = new Server(
   {
     capabilities: {
       tools: {},
+      resources: {},
     },
   }
 );
 
-// Register available tools
+// Map to store dynamic tool handlers
+const dynamicToolsMap = new Map<string, { handler: (args: any) => Promise<any>; metadata: any }>();
+
+// Map to store dynamic resources (guidelines)
+const dynamicResourcesMap = new Map<string, { name: string; description: string; path: string; uri: string }>();
+
+// Helper to check if file/folder exists
+async function exists(p: string): Promise<boolean> {
+  try {
+    await fs.access(p);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Dynamically scan and load skills (Resources & Tools)
+async function loadSkills() {
+  // We scan the source directory to find skills, but import from the compiled dist directory
+  const srcSkillsDir = path.join(__dirname, "skills");
+  const distSkillsDir = path.join(__dirname, "skills"); // since index.js is in dist/, __dirname points to dist/
+
+  if (!(await exists(distSkillsDir))) {
+    console.error(`Skills directory not found at ${distSkillsDir}`);
+    return;
+  }
+
+  const skillFolders = await fs.readdir(distSkillsDir);
+
+  for (const folder of skillFolders) {
+    const skillPath = path.join(distSkillsDir, folder);
+    const stat = await fs.stat(skillPath);
+
+    if (!stat.isDirectory()) continue;
+
+    // 1. Register SKILL.md as Resource
+    // Since SKILL.md is not compiled by tsc, it only exists in src/.
+    // Let's resolve the path relative to src/ or dist/
+    let skillMdPath = path.join(skillPath, "SKILL.md");
+    if (!await exists(skillMdPath)) {
+      // If it's running from dist/, SKILL.md is in the src/ counterpart directory
+      const srcSkillPath = skillPath.replace("/dist/skills", "/src/skills");
+      skillMdPath = path.join(srcSkillPath, "SKILL.md");
+    }
+
+    if (await exists(skillMdPath)) {
+      const uri = `metadata://skills/${folder}/guidelines`;
+      dynamicResourcesMap.set(uri, {
+        name: `${folder}-guidelines`,
+        description: `Panduan/Guidelines untuk skill ${folder}`,
+        path: skillMdPath,
+        uri,
+      });
+      console.error(`Loaded resource guidelines for skill: ${folder}`);
+    }
+
+    // 2. Scan and load tools dynamically from tools/ directory
+    const toolsDir = path.join(skillPath, "tools");
+    if (await exists(toolsDir)) {
+      const toolFiles = await fs.readdir(toolsDir);
+      for (const file of toolFiles) {
+        if (!file.endsWith(".js") && !file.endsWith(".ts")) continue;
+        // Only load compiled .js files at runtime if running from dist
+        if (file.endsWith(".ts") && __dirname.includes("dist")) continue;
+        if (file.endsWith(".js") && !__dirname.includes("dist")) continue;
+
+        const toolFilePath = path.join(toolsDir, file);
+        try {
+          // Dynamic import using file:// URL for ES Modules compatibility
+          const fileUrl = pathToFileURL(toolFilePath).href;
+          const toolModule = await import(fileUrl);
+
+          if (toolModule.metadata && typeof toolModule.handler === "function") {
+            const toolName = toolModule.metadata.name;
+            dynamicToolsMap.set(toolName, {
+              handler: toolModule.handler,
+              metadata: toolModule.metadata,
+            });
+            console.error(`Loaded dynamic tool: ${toolName} from skill ${folder}`);
+          }
+        } catch (err: any) {
+          console.error(`Failed to load tool ${file} from skill ${folder}:`, err.message);
+        }
+      }
+    }
+  }
+}
+
+// Load skills before setting up handlers
+await loadSkills();
+
+// Register available tools (Static + Dynamic)
 server.setRequestHandler(ListToolsRequestSchema, async () => {
+  const staticTools = [
+    {
+      name: "system_status",
+      description: "Mendapatkan status performa sistem lokal (CPU, RAM, Disk space)",
+      inputSchema: {
+        type: "object",
+        properties: {},
+      },
+    },
+    {
+      name: "run_safe_command",
+      description: "Menjalankan command shell terbatas di dalam workspace sandbox",
+      inputSchema: {
+        type: "object",
+        properties: {
+          command: {
+            type: "string",
+            description: "Command shell yang ingin dijalankan (misal: 'git status', 'ls -la')",
+          },
+        },
+        required: ["command"],
+      },
+    },
+  ];
+
+  const dynamicTools = Array.from(dynamicToolsMap.values()).map(t => t.metadata);
+
   return {
-    tools: [
-      {
-        name: "system_status",
-        description: "Mendapatkan status performa sistem lokal (CPU, RAM, Disk space)",
-        inputSchema: {
-          type: "object",
-          properties: {},
-        },
-      },
-      {
-        name: "run_safe_command",
-        description: "Menjalankan command shell terbatas di dalam workspace sandbox",
-        inputSchema: {
-          type: "object",
-          properties: {
-            command: {
-              type: "string",
-              description: "Command shell yang ingin dijalankan (misal: 'git status', 'ls -la')",
-            },
-          },
-          required: ["command"],
-        },
-      },
-      {
-        name: "gading_dev_get_guidelines",
-        description: "Mendapatkan panduan markdown dinamis untuk kontribusi konten blog gading.dev",
-        inputSchema: {
-          type: "object",
-          properties: {},
-        },
-      },
-      {
-        name: "gading_dev_publish",
-        description: "Mempublikasikan perubahan blog gading.dev (git add, commit, push, dan trigger Cloudinary sync)",
-        inputSchema: {
-          type: "object",
-          properties: {
-            commitMessage: {
-              type: "string",
-              description: "Conventional commit message (misal: 'feat: add new post about mcp')",
-            },
-          },
-          required: ["commitMessage"],
-        },
-      },
-    ],
+    tools: [...staticTools, ...dynamicTools],
   };
 });
 
@@ -85,6 +161,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
 
   try {
+    // Check dynamic tools first
+    if (dynamicToolsMap.has(name)) {
+      const tool = dynamicToolsMap.get(name)!;
+      return await tool.handler(args);
+    }
+
+    // Fallback to static tools
     if (name === "system_status") {
       const [uptimeRes, memRes, diskRes] = await Promise.all([
         execAsync("uptime"),
@@ -116,7 +199,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     if (name === "run_safe_command") {
       const command = args?.command as string;
       
-      // Basic security check: prevent dangerous commands
       const blockedKeywords = [";", "&&", "||", "|", ">", "<", "&", "rm ", "sudo", "elevated", "chmod", "chown", "mv "];
       const hasBlocked = blockedKeywords.some(keyword => command.includes(keyword));
       
@@ -132,7 +214,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
-      // Execute command in workspace root
       const workspaceRoot = "/root/.openclaw/workspace";
       const { stdout, stderr } = await execAsync(command, { cwd: workspaceRoot });
 
@@ -155,61 +236,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       };
     }
 
-    if (name === "gading_dev_get_guidelines") {
-      const templatePath = path.join(__dirname, "../templates/contributing-guidelines.md");
-      const guidelines = await fs.readFile(templatePath, "utf-8");
-
-      return {
-        content: [
-          {
-            type: "text",
-            text: guidelines,
-          },
-        ],
-      };
-    }
-
-    if (name === "gading_dev_publish") {
-      const commitMessage = args?.commitMessage as string;
-      const blogRepoPath = "/root/.openclaw/workspace/projects/gading.dev";
-
-      // Run publish sequence in the gading.dev repo
-      const steps = [
-        `git add .`,
-        `git commit -m "${commitMessage.replace(/"/g, '\\"')}"`,
-        `git push origin main`,
-        `gh workflow run cloudinary.yml --repo gadingnstn/gading.dev`
-      ];
-
-      const results: string[] = [];
-      for (const step of steps) {
-        try {
-          const { stdout, stderr } = await execAsync(step, { cwd: blogRepoPath });
-          results.push(`$ ${step}\nSTDOUT:\n${stdout.trim() || "(no output)"}\nSTDERR:\n${stderr.trim() || "(no error)"}`);
-        } catch (stepErr: any) {
-          results.push(`$ ${step}\nFAILED: ${stepErr.message}`);
-          return {
-            content: [
-              {
-                type: "text",
-                text: `Publish failed at step:\n\n${results.join("\n\n")}`,
-              },
-            ],
-            isError: true,
-          };
-        }
-      }
-
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Successfully published changes to gading.dev!\n\n${results.join("\n\n")}`,
-          },
-        ],
-      };
-    }
-
     throw new Error(`Tool ${name} tidak ditemukan`);
   } catch (error: any) {
     return {
@@ -222,6 +248,42 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       isError: true,
     };
   }
+});
+
+// Register available resources (Guidelines)
+server.setRequestHandler(ListResourcesRequestSchema, async () => {
+  const resources = Array.from(dynamicResourcesMap.values()).map(r => ({
+    uri: r.uri,
+    name: r.name,
+    description: r.description,
+    mimeType: "text/markdown",
+  }));
+
+  return {
+    resources,
+  };
+});
+
+// Read resource content
+server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+  const { uri } = request.params;
+
+  if (dynamicResourcesMap.has(uri)) {
+    const resource = dynamicResourcesMap.get(uri)!;
+    const content = await fs.readFile(resource.path, "utf-8");
+
+    return {
+      contents: [
+        {
+          uri,
+          mimeType: "text/markdown",
+          text: content,
+        },
+      ],
+    };
+  }
+
+  throw new Error(`Resource ${uri} tidak ditemukan`);
 });
 
 // Run the server using stdio transport
