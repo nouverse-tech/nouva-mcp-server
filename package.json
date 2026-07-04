@@ -1,0 +1,29 @@
+{
+  "name": "nouva-mcp-server",
+  "version": "1.0.0",
+  "description": "Nouva Personalized Skills and Memory MCP Server",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts"
+  },
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "openclaw",
+    "nouva"
+  ],
+  "author": "Nouva",
+  "license": "ISC",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.0",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.19.2",
+    "typescript": "^6.0.3"
+  }
+}
