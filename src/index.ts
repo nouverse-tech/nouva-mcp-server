@@ -6,8 +6,14 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { exec } from "child_process";
 import { promisify } from "util";
+import fs from "fs/promises";
+import path from "path";
+import { fileURLToPath } from "url";
 
 const execAsync = promisify(exec);
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Initialize the MCP Server
 const server = new Server(
@@ -46,6 +52,28 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
           },
           required: ["command"],
+        },
+      },
+      {
+        name: "gading_dev_get_guidelines",
+        description: "Mendapatkan panduan markdown dinamis untuk kontribusi konten blog gading.dev",
+        inputSchema: {
+          type: "object",
+          properties: {},
+        },
+      },
+      {
+        name: "gading_dev_publish",
+        description: "Mempublikasikan perubahan blog gading.dev (git add, commit, push, dan trigger Cloudinary sync)",
+        inputSchema: {
+          type: "object",
+          properties: {
+            commitMessage: {
+              type: "string",
+              description: "Conventional commit message (misal: 'feat: add new post about mcp')",
+            },
+          },
+          required: ["commitMessage"],
         },
       },
     ],
@@ -122,6 +150,61 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               "=== STDERR ===",
               stderr || "(no error output)",
             ].join("\n"),
+          },
+        ],
+      };
+    }
+
+    if (name === "gading_dev_get_guidelines") {
+      const templatePath = path.join(__dirname, "../templates/contributing-guidelines.md");
+      const guidelines = await fs.readFile(templatePath, "utf-8");
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: guidelines,
+          },
+        ],
+      };
+    }
+
+    if (name === "gading_dev_publish") {
+      const commitMessage = args?.commitMessage as string;
+      const blogRepoPath = "/root/.openclaw/workspace/projects/gading.dev";
+
+      // Run publish sequence in the gading.dev repo
+      const steps = [
+        `git add .`,
+        `git commit -m "${commitMessage.replace(/"/g, '\\"')}"`,
+        `git push origin main`,
+        `gh workflow run cloudinary.yml --repo gadingnstn/gading.dev`
+      ];
+
+      const results: string[] = [];
+      for (const step of steps) {
+        try {
+          const { stdout, stderr } = await execAsync(step, { cwd: blogRepoPath });
+          results.push(`$ ${step}\nSTDOUT:\n${stdout.trim() || "(no output)"}\nSTDERR:\n${stderr.trim() || "(no error)"}`);
+        } catch (stepErr: any) {
+          results.push(`$ ${step}\nFAILED: ${stepErr.message}`);
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Publish failed at step:\n\n${results.join("\n\n")}`,
+              },
+            ],
+            isError: true,
+          };
+        }
+      }
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Successfully published changes to gading.dev!\n\n${results.join("\n\n")}`,
           },
         ],
       };

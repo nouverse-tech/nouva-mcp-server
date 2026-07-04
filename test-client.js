@@ -59,9 +59,14 @@ setTimeout(() => {
   sendRequest("tools/call", { name: "run_safe_command", arguments: { command: "rm -rf test" } }, 5);
 }, 5000);
 
+// 6. Send tools/call request for gading_dev_get_guidelines
+setTimeout(() => {
+  sendRequest("tools/call", { name: "gading_dev_get_guidelines", arguments: {} }, 6);
+}, 6000);
+
 // Exit
 setTimeout(() => {
   console.log("Shutting down test...");
   serverProcess.kill();
   process.exit(0);
-}, 7000);
+}, 8000);
