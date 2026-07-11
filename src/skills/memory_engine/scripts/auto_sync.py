@@ -32,6 +32,10 @@ CORE_FILES = [
     "INFRASTRUCTURE.md",
 ]
 
+VECTOR_FILES = [
+    "MEMORY_INDEX.md",
+]
+
 
 def main():
     try:
@@ -59,7 +63,7 @@ def main():
         generate_memory_index(active_memory_dir, archived_memory_dir, nas)
 
         print("3. Syncing core files to pgvector...")
-        sync_core_files(CORE_FILES, WORKSPACE_ROOT)
+        sync_core_files(VECTOR_FILES, WORKSPACE_ROOT)
 
         print("4. Archiving memory logs to NAS...")
         sync_memory_logs(active_memory_dir, nas)
