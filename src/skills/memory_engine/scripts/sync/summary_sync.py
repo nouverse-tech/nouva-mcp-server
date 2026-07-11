@@ -7,6 +7,8 @@ import yaml
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from util.load_config import (
+    get_config_value,
+    load_memory_config,
     map_and_filter_entities,
     normalize_entities_in_yaml,
 )
@@ -66,10 +68,15 @@ def generate_daily_summary(
     payload = {
         "model": model,
         "messages": [{"role": "user", "content": prompt + "\n\n" + combined}],
-        "temperature": 0.2,
+        "temperature": float(get_config_value(config, "llm.temperature", 0.2)),
     }
     try:
-        res = requests.post(url, headers={"Content-Type": "application/json"}, json=payload, timeout=60)
+        res = requests.post(
+            url,
+            headers={"Content-Type": "application/json"},
+            json=payload,
+            timeout=int(get_config_value(config, "llm.timeout_seconds", 60)),
+        )
         if res.status_code == 200:
             return res.json()["choices"][0]["message"]["content"]
     except Exception as e:
@@ -82,8 +89,12 @@ def find_related_dates_from_rag(query_text: str, current_date_str: str, max_rela
     clean_query = re.sub(r"^### .*?$", "", query_text, flags=re.MULTILINE).strip()
     if not clean_query:
         return []
+    config = load_memory_config()
     try:
-        results = db_helper.vector_search(clean_query, limit=10)
+        results = db_helper.vector_search(
+            clean_query,
+            limit=int(get_config_value(config, "retrieval.vector_search_limit", 10)),
+        )
     except Exception as e:
         print(f"⚠️ Exception during pgvector related dates search: {e}")
         return []
@@ -91,7 +102,7 @@ def find_related_dates_from_rag(query_text: str, current_date_str: str, max_rela
     date_scores = {}
     date_pattern = re.compile(r"(\d{4}-\d{2}-\d{2})")
     for r in results:
-        score = r.get("score", 0.5)
+        score = r.get("score", float(get_config_value(config, "retrieval.default_semantic_score", 0.5)))
         for d in date_pattern.findall(r.get("text", "")):
             if d != current_date_str:
                 date_scores[d] = max(date_scores.get(d, 0.0), score)
@@ -158,6 +169,7 @@ def inject_related_dates(
     active_memory_dir: str,
 ) -> str:
     """Inject related_dates, normalize entities/wikilinks, and rebuild 🔗 Links line."""
+    _ = summaries_dir, archived_memory_dir, active_memory_dir
     pattern_yaml = r"^(?:```yaml|---)\n(.*?)\n(?:```|---)\n(.*)"
     match_yaml = re.match(pattern_yaml, summary_text, re.DOTALL)
     if not match_yaml:
@@ -275,6 +287,7 @@ def reconcile_missing_summaries(
 
 def generate_memory_index(active_memory_dir: str, archived_memory_dir: str, nas) -> None:
     """Build/update MEMORY_INDEX.md incrementally from local and NAS summaries."""
+    _ = archived_memory_dir
     print("📝 Generating MEMORY_INDEX.md (Incremental from Summaries)...")
     local_summaries_dir = os.path.join(active_memory_dir, "_summaries")
     output_path = os.path.join(active_memory_dir, "MEMORY_INDEX.md")

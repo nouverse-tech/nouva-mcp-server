@@ -38,7 +38,6 @@
     ],
     "default": "mixed"
   },
-  "decay_constant": 0.005,
   "link_mappings": {
     "people": {
       "ding": "Gading",
@@ -58,7 +57,25 @@
       "nouverse-core": "Nouverse"
     }
   },
-  "max_graph_depth": 2,
+  "retrieval": {
+    "decay_constant": 0.005,
+    "vector_search_limit": 10,
+    "default_semantic_score": 0.5,
+    "max_graph_depth": 2,
+    "related_date_score_decay": 0.7,
+    "default_importance": 5,
+    "invalid_date_fallback_days": 365,
+    "keyword_boost": {
+      "unique_match_weight": 0.02,
+      "frequency_weight": 0.005,
+      "frequency_cap": 20
+    },
+    "weights": {
+      "importance": 0.3,
+      "recency": 0.2,
+      "semantic": 0.5
+    }
+  },
   "max_related_dates": 2,
   "memory_paths": {
     "active_memory_dir": "<path_to_your_active_memory_directory>",
@@ -78,13 +95,13 @@
   },
   "llm": {
     "url": "http://localhost:3000/v1/chat/completions",
-    "model": "gemini-3.5-flash-low"
+    "model": "gemini-3.5-flash-low",
+    "timeout_seconds": 60
+  },
+  "chunking": {
+    "max_chunk_size": 1000,
+    "overlap": 100
   },
   "multi_level_index_threshold_entries": 1000,
-  "multi_level_index_threshold_kb": 500,
-  "retrieval_weights": {
-    "importance": 0.3,
-    "recency": 0.2,
-    "semantic": 0.5
-  }
+  "multi_level_index_threshold_kb": 500
 }

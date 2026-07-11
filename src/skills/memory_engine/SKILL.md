@@ -12,18 +12,18 @@ This skill exposes Nouva's 2-lane memory system:
 - **Operational tools** for transcript writing and sync orchestration.
 
 ## Core Config
-- **Memory Config**: `src/skills/memory_engine/memory_config.json` (contains hybrid scoring weights, graph traversal depths, database connection parameters including credentials, and embedding/LLM endpoints)
+- **Memory Config**: `src/skills/memory_engine/memory_config.json` (contains retrieval tuning under `retrieval.*`, graph traversal depth/decay, chunking settings, database connection parameters including credentials, embedding/LLM endpoints, and reserved thresholds for future `MEMORY_INDEX.md` multi-level scaling)
 
 ## Helper Scripts (Sync & Query Actions)
 - **Auto Sync**: `src/skills/memory_engine/scripts/auto_sync.py` (Main smart sync for files, daily summaries, and logs)
-- **Unified Memory Query**: `src/skills/memory_engine/scripts/query_memory.py` (Runs pgvector semantic search, applies Hybrid Scoring, resolves continue_of/related_dates via 1-hop expansion, then automatically falls back to NAS-by-date and NAS keyword search internally)
+- **Unified Memory Query**: `src/skills/memory_engine/scripts/query_memory.py` (Runs pgvector semantic search, applies Hybrid Scoring, traverses `related_dates` using configurable graph depth/decay, then automatically falls back to NAS-by-date and NAS keyword search internally)
 - **DB Init**: `src/skills/memory_engine/scripts/db/init_db.py` (Initialize local pgvector schema)
 
 ## Essential Endpoints / Commands
 
 1. **Unified Memory Query (Recommended)**
    - Command: `python3 src/skills/memory_engine/scripts/query_memory.py "query"`
-   - Purpose: Retrieve memory in one call. The script automatically: (1) searches pgvector for candidate dates/concepts, (2) computes a Hybrid Score (Semantic 50% + Importance 30% + Recency 20%), (3) performs 1-hop expansion over `related_dates` from `.summary.md` YAML frontmatter, (4) loads clean daily summaries from local/NAS storage, and (5) always runs keyword search over summaries as a safety net. Raw transcripts are not auto-loaded; the result returns archive path pointers.
+   - Purpose: Retrieve memory in one call. The script automatically: (1) searches pgvector for candidate dates/concepts, (2) computes a Hybrid Score using configurable `retrieval.weights`, (3) traverses `related_dates` from `.summary.md` YAML frontmatter using configurable `retrieval.max_graph_depth` and `retrieval.related_date_score_decay`, (4) loads clean daily summaries from local/NAS storage, and (5) always runs keyword search over summaries as a safety net. Raw transcripts are not auto-loaded; the result returns archive path pointers.
 
 ## Memory Strategy
 

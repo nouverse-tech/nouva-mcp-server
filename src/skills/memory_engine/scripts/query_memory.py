@@ -6,7 +6,13 @@ import math
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(__file__))
-from util.load_config import load_memory_config, resolve_paths, parse_summary_yaml, map_and_filter_entities
+from util.load_config import (
+    get_config_value,
+    load_memory_config,
+    map_and_filter_entities,
+    parse_summary_yaml,
+    resolve_paths,
+)
 from db import db_helper
 
 config = load_memory_config()
@@ -14,6 +20,41 @@ ACTIVE_MEMORY_DIR, ARCHIVED_MEMORY_DIR = resolve_paths(config)
 SUMMARIES_DIR = os.path.join(ACTIVE_MEMORY_DIR, "_summaries")
 RETRIEVAL_LOG_PATH = os.path.join(ACTIVE_MEMORY_DIR, "retrieval.log")
 DATE_PATTERN = re.compile(r"(\d{4}-\d{2}-\d{2})")
+
+def get_retrieval_config(config):
+    """Return retrieval tuning from the current memory_config schema."""
+    return {
+        "weights": get_config_value(
+            config,
+            "retrieval.weights",
+            {"semantic": 0.5, "importance": 0.3, "recency": 0.2},
+        ),
+        "decay_constant": get_config_value(
+            config,
+            "retrieval.decay_constant",
+            0.005,
+        ),
+        "vector_search_limit": int(get_config_value(config, "retrieval.vector_search_limit", 10)),
+        "default_semantic_score": float(get_config_value(config, "retrieval.default_semantic_score", 0.5)),
+        "max_graph_depth": max(
+            0,
+            int(get_config_value(config, "retrieval.max_graph_depth", 1)),
+        ),
+        "related_date_score_decay": float(get_config_value(config, "retrieval.related_date_score_decay", 0.7)),
+        "default_importance": float(get_config_value(config, "retrieval.default_importance", 5.0)),
+        "invalid_date_fallback_days": int(get_config_value(config, "retrieval.invalid_date_fallback_days", 365)),
+        "keyword_unique_match_weight": float(
+            get_config_value(config, "retrieval.keyword_boost.unique_match_weight", 0.02)
+        ),
+        "keyword_frequency_weight": float(
+            get_config_value(config, "retrieval.keyword_boost.frequency_weight", 0.005)
+        ),
+        "keyword_frequency_cap": max(
+            0,
+            int(get_config_value(config, "retrieval.keyword_boost.frequency_cap", 20)),
+        ),
+    }
+
 
 def calculate_match_score(content, query):
     content_lower = content.lower()
@@ -32,27 +73,31 @@ def calculate_match_score(content, query):
     return unique_matches, total_freq
 
 
-def calculate_summary_rank(hybrid_score, unique_matches, total_freq):
+def calculate_summary_rank(hybrid_score, unique_matches, total_freq, retrieval_config):
     """Keep hybrid ranking primary and use keyword matches as a secondary boost."""
-    keyword_boost = (unique_matches * 0.02) + (min(total_freq, 20) * 0.005)
+    keyword_boost = (
+        unique_matches * retrieval_config["keyword_unique_match_weight"]
+        + min(total_freq, retrieval_config["keyword_frequency_cap"]) * retrieval_config["keyword_frequency_weight"]
+    )
     return hybrid_score + keyword_boost
 
-def calculate_hybrid_score(semantic_score, date_str, weights, decay_constant):
+def calculate_hybrid_score(semantic_score, date_str, retrieval_config):
     metadata = parse_summary_yaml(date_str, SUMMARIES_DIR, ARCHIVED_MEMORY_DIR)
-    importance = metadata.get("importance", 5)
+    importance = metadata.get("importance", retrieval_config["default_importance"])
 
     try:
         days_diff = (datetime.today().date() - datetime.strptime(date_str, "%Y-%m-%d").date()).days
     except ValueError:
-        days_diff = 365
+        days_diff = retrieval_config["invalid_date_fallback_days"]
 
-    recency_decay = math.exp(-decay_constant * days_diff)
+    recency_decay = math.exp(-retrieval_config["decay_constant"] * days_diff)
     
     try:
         importance_val = float(importance)
     except (ValueError, TypeError):
-        importance_val = 5.0
+        importance_val = retrieval_config["default_importance"]
     importance_norm = importance_val / 10.0
+    weights = retrieval_config["weights"]
 
     final_score = (
         weights["semantic"] * semantic_score
@@ -71,9 +116,9 @@ def log_retrieval(query, scored_dates):
     with open(RETRIEVAL_LOG_PATH, "a") as f:
         f.write(json.dumps(entry) + "\n")
 
-def vector_search(query):
+def vector_search(query, retrieval_config):
     try:
-        return db_helper.vector_search(query, limit=10)
+        return db_helper.vector_search(query, limit=retrieval_config["vector_search_limit"])
     except Exception as e:
         print(f"⚠️ Vector search failed: {e}")
     return []
@@ -146,6 +191,33 @@ def search_keyword_in_nas_summaries(query):
 def map_and_filter_entities_local(entities_list, category, config):
     return map_and_filter_entities(entities_list, category, config)
 
+
+def expand_related_dates(date_scores, retrieval_config):
+    """Expand graph traversal over related_dates with configurable depth and score decay."""
+    expanded_date_scores = dict(date_scores)
+    frontier = dict(date_scores)
+
+    for _ in range(retrieval_config["max_graph_depth"]):
+        next_frontier = {}
+        for date_str, parent_score in frontier.items():
+            metadata = parse_summary_yaml(date_str, SUMMARIES_DIR, ARCHIVED_MEMORY_DIR)
+            related = metadata.get("related_dates", [])
+            if not isinstance(related, list):
+                continue
+
+            decayed_score = parent_score * retrieval_config["related_date_score_decay"]
+            for related_date in related:
+                if not related_date:
+                    continue
+                current_best = expanded_date_scores.get(related_date, 0.0)
+                if decayed_score > current_best:
+                    expanded_date_scores[related_date] = decayed_score
+                    next_frontier[related_date] = max(next_frontier.get(related_date, 0.0), decayed_score)
+        frontier = next_frontier
+        if not frontier:
+            break
+    return expanded_date_scores
+
 def main():
     import argparse
     parser = argparse.ArgumentParser(description="Unified Memory Query (RAG Semantic Search + NAS Fallback)")
@@ -157,14 +229,15 @@ def main():
     print(f"🔍 Searching memories for: '{query}'...")
 
     # Step 1: Run Vector Search (Semantic Search)
-    results = vector_search(query)
+    retrieval_config = get_retrieval_config(config)
+    results = vector_search(query, retrieval_config)
     
     date_scores = {}
     rag_chunks = []
     
     for r in results:
         text = r.get("text", "")
-        score = r.get("score", 0.5)
+        score = r.get("score", retrieval_config["default_semantic_score"])
         # Check if chunk is from MEMORY_INDEX.md
         if "MEMORY_INDEX.md" in text or "Historical Memory Map" in text or "### 📅" in text:
             # Extract dates
@@ -174,28 +247,12 @@ def main():
             # Normal chunk (e.g. from MEMORY.md or recent 7 days log)
             rag_chunks.append(r)
             
-    # Step 2: Hybrid Scoring & 1-Hop Related Dates Expansion
-    weights = config.get("retrieval_weights", {"semantic": 0.5, "importance": 0.3, "recency": 0.2})
-    decay_constant = config.get("decay_constant", 0.005)
-    
-    # Perform a 1-hop expansion using related_dates from YAML metadata
-    expanded_date_scores = {}
-    for d, score in date_scores.items():
-        expanded_date_scores[d] = max(expanded_date_scores.get(d, 0.0), score)
-        
-        # Read related_dates from YAML summary
-        metadata = parse_summary_yaml(d, SUMMARIES_DIR, ARCHIVED_MEMORY_DIR)
-        related = metadata.get("related_dates", [])
-        if isinstance(related, list):
-            for r_date in related:
-                if r_date:
-                    # Apply a 30% decay relative to the parent semantic score
-                    decayed_score = score * 0.7
-                    expanded_date_scores[r_date] = max(expanded_date_scores.get(r_date, 0.0), decayed_score)
+    # Step 2: Hybrid Scoring & configurable related-dates graph expansion
+    expanded_date_scores = expand_related_dates(date_scores, retrieval_config)
                     
     visited_dates = {} # date -> (final_score, metadata)
     for d, score in expanded_date_scores.items():
-        final_score, metadata = calculate_hybrid_score(score, d, weights, decay_constant)
+        final_score, metadata = calculate_hybrid_score(score, d, retrieval_config)
         visited_dates[d] = (final_score, metadata)
 
     scored_dates = [(d, score_meta[0], score_meta[1]) for d, score_meta in visited_dates.items()]
@@ -235,7 +292,7 @@ def main():
         ranked_contents = []
         for c in summaries_content:
             uniq, freq = calculate_match_score(c["summary"], query)
-            final_rank = calculate_summary_rank(c.get("hybrid_score", 0.0), uniq, freq)
+            final_rank = calculate_summary_rank(c.get("hybrid_score", 0.0), uniq, freq, retrieval_config)
             ranked_contents.append((c, uniq, freq, final_rank))
         ranked_contents.sort(key=lambda x: (x[3], x[1], x[2], x[0]["date"]), reverse=True)
         summaries_content = [x[0] for x in ranked_contents]

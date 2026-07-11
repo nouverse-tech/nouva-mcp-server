@@ -19,6 +19,26 @@ def load_memory_config() -> dict:
     return {}
 
 
+def get_config_value(config: dict | None, path: str, default=None):
+    """Read a dotted config path from the current config schema."""
+    if not isinstance(config, dict):
+        return default
+
+    def _walk(target: dict, dotted_path: str):
+        current = target
+        for part in dotted_path.split("."):
+            if not isinstance(current, dict) or part not in current:
+                return None
+            current = current[part]
+        return current
+
+    value = _walk(config, path)
+    if value is not None:
+        return value
+
+    return default
+
+
 def resolve_paths(config: dict = None):
     """Return (active_memory_dir, archived_memory_dir) from config or env vars."""
     if config is None:
@@ -59,7 +79,7 @@ def parse_summary_yaml(date_str: str, summaries_dir: str, archived_memory_dir: s
     return {}
 
 
-def map_and_filter_entities(entities_list: list, category: str, config: dict) -> list:
+def map_and_filter_entities(entities_list: list | None, category: str, config: dict) -> list:
     """Return only entities that exist in link_mappings (normalized). Filters unknown ones."""
     if not isinstance(entities_list, list):
         return []
@@ -74,7 +94,7 @@ def map_and_filter_entities(entities_list: list, category: str, config: dict) ->
     return result
 
 
-def normalize_entities_in_yaml(entities_list: list, category: str, config: dict) -> list:
+def normalize_entities_in_yaml(entities_list: list | None, category: str, config: dict) -> list:
     """Normalize known entities, preserve unknown ones for RAG indexing."""
     if not isinstance(entities_list, list):
         return []

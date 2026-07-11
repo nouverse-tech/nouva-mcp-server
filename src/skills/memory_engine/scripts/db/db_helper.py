@@ -4,7 +4,7 @@ import json
 import requests
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from util.load_config import load_memory_config
+from util.load_config import get_config_value, load_memory_config
 from db.analytics_repo import ensure_schema
 
 
@@ -92,7 +92,12 @@ def chunk_markdown(text, max_chunk_size=1000, overlap=100):
 
 
 def sync_file_to_vector_db(document_path, file_content, metadata):
-    chunks = chunk_markdown(file_content)
+    config = load_memory_config()
+    chunks = chunk_markdown(
+        file_content,
+        max_chunk_size=int(get_config_value(config, "chunking.max_chunk_size", 1000)),
+        overlap=int(get_config_value(config, "chunking.overlap", 100)),
+    )
     if not chunks:
         print(f"⏭️ No chunks generated for {document_path}.")
         return False
@@ -138,7 +143,10 @@ def delete_file_from_vector_db(document_path):
         conn.close()
 
 
-def vector_search(query_text, limit=10):
+def vector_search(query_text, limit=None):
+    if limit is None:
+        config = load_memory_config()
+        limit = int(get_config_value(config, "retrieval.vector_search_limit", 10))
     query_emb = get_ollama_embeddings(query_text)
 
     conn = get_db_connection()

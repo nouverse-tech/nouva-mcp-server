@@ -8,8 +8,8 @@ This skill provides Nouva's current 2-lane memory architecture:
 
 ## Features
 - **Semantic Vector Search**: Uses a local embedding model (e.g. `bge-m3:latest`) to query pgvector memories.
-- **Hybrid Scoring**: Combines semantic similarity (50%), importance score (30%), and recency decay (20%).
-- **Obsidian Graph Expansion**: Performs a 1-hop related dates expansion to bridge contextual gaps.
+- **Hybrid Scoring**: Combines semantic similarity, importance, and recency using configurable weights from `memory_config.json`.
+- **Obsidian Graph Expansion**: Traverses `related_dates` using a configurable graph depth and score decay.
 - **Deterministic Analytics**: Loads `.summary.md` metadata into the `daily_summaries` SQL table for aggregation queries.
 - **Auto-Sync / Ingestion**: Reconciles summaries, updates `MEMORY_INDEX.md`, syncs core docs to pgvector, syncs daily summaries to SQL, and archives logs to NAS.
 
@@ -30,8 +30,58 @@ Then edit `memory_config.json` to match your infrastructure settings:
 - **`database.password`**: Database password (plain text, used when `database.url` is empty).
 - **`database.url`**: Full connection string (overrides individual fields if provided). Format: `postgresql://user:password@host:port/dbname`
 - **`embedding`**: URL and model name for generating embeddings.
-- **`llm`**: Local proxy URL and model used for daily summary generation.
+- **`llm`**: Local proxy URL and model used for daily summary generation. `timeout_seconds` is configurable; `temperature` falls back to the script default when omitted.
 - **`memory_paths`**: Active memory folder and archived NAS mount path.
+- **`retrieval`**: Central tuning block for semantic recall:
+  - `weights.semantic|importance|recency`
+  - `decay_constant`
+  - `vector_search_limit`
+  - `default_semantic_score`
+  - `max_graph_depth`
+  - `related_date_score_decay`
+  - `default_importance`
+  - `invalid_date_fallback_days`
+  - `keyword_boost.unique_match_weight|frequency_weight|frequency_cap`
+- **`chunking`**: Vector indexing chunk size and overlap.
+- **`max_related_dates`**: Maximum related dates written into generated `.summary.md` metadata.
+- **`multi_level_index_threshold_entries` / `multi_level_index_threshold_kb`**: Reserved config fields for future `MEMORY_INDEX.md` scaling. They are intended to act as thresholds for switching from a single large index into a multi-level index layout (for example, index-of-indexes + topic/date sub-indexes), but they are currently not consumed by runtime code.
+
+### 2. Config Structure Reference
+
+Current retrieval-related settings are nested under `retrieval` instead of legacy top-level fields:
+
+```json
+{
+  "retrieval": {
+    "decay_constant": 0.005,
+    "vector_search_limit": 10,
+    "default_semantic_score": 0.5,
+    "max_graph_depth": 2,
+    "related_date_score_decay": 0.7,
+    "default_importance": 5,
+    "invalid_date_fallback_days": 365,
+    "keyword_boost": {
+      "unique_match_weight": 0.02,
+      "frequency_weight": 0.005,
+      "frequency_cap": 20
+    },
+    "weights": {
+      "semantic": 0.5,
+      "importance": 0.3,
+      "recency": 0.2
+    }
+  },
+  "llm": {
+    "url": "http://localhost:3000/v1/chat/completions",
+    "model": "gemini-3.5-flash-low",
+    "timeout_seconds": 60
+  },
+  "chunking": {
+    "max_chunk_size": 1000,
+    "overlap": 100
+  }
+}
+```
 
 > **Note**: `memory_config.json` is git-ignored — it is safe to store credentials here.
 
@@ -182,4 +232,3 @@ Average importance:
 Since all daily logs and summaries are stored in a clean Markdown format (`YYYY-MM-DD.md` and `_summaries/YYYY-MM-DD.summary.md`), you can easily open the active/archived memory directories in [Obsidian](https://obsidian.md) to explore your memories visually as an interconnected knowledge graph.
 
 ![Obsidian Graph View](../../../assets/obsidian_graph.jpg)
-

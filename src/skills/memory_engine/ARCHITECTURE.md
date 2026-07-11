@@ -118,7 +118,7 @@ flowchart TD
 
 ### 3.2 Note on LLM Usage
 
-Summary generation uses a configurable LLM endpoint/model from `memory_config.json` via [summary_sync.py](file:///Users/gadingnst/Workspace/nouverse/nouva-mcp-server/src/skills/memory_engine/scripts/sync/summary_sync.py). If summaries already exist (pre-generated), the rest of the pipeline still works without calling an LLM.
+Summary generation uses a configurable LLM endpoint/model from `memory_config.json` via [summary_sync.py](file:///Users/gadingnst/Workspace/nouverse/nouva-mcp-server/src/skills/memory_engine/scripts/sync/summary_sync.py). `llm.timeout_seconds` is configurable, while `temperature` currently falls back to the script default when omitted from config. If summaries already exist (pre-generated), the rest of the pipeline still works without calling an LLM.
 
 ---
 
@@ -127,6 +127,7 @@ Summary generation uses a configurable LLM endpoint/model from `memory_config.js
 The retrieval path is intentionally hybrid:
 
 - Semantic search is used primarily to find candidate dates (via the index map).
+- Ranking weights and score decay are loaded from `memory_config.json` under `retrieval.*`.
 - Summaries are the primary answer surface (short, clean, low token usage).
 - Keyword scanning over summaries is always executed as a safety net.
 - Raw transcripts are not automatically loaded; they are exposed via NAS path pointers.
@@ -146,7 +147,7 @@ flowchart TD
   D -->|yes| EX["Extract YYYY-MM-DD dates (regex)"]
   D -->|no| RC["Keep as direct semantic chunks\n(MEMORY.md etc.)"]
 
-  EX --> HS["Hybrid score per date\nsemantic+importance+recency\n+ 1-hop related_dates expansion"]
+  EX --> HS["Hybrid score per date\nsemantic+importance+recency\n+ configurable related_dates traversal"]
   HS --> SUM["Tier B: read summaries\n(local summaries/ OR NAS daily_sessions/summaries)"]
 
   QM --> KW["Tier C: keyword scan summaries (always)\nmerge + dedupe"]
@@ -169,7 +170,8 @@ Analytics queries should not be answered by semantic search. They are routed to 
 - The analytics contract now supports both base intents (`dates_for_value`, `top_values`, `mood_timeseries`, `mood_distribution_by_weekday`) and quick-win aggregate intents (`count_distinct_dates_for_value`, `count_by_period`, `grouped_top_values`, `average_importance`).
 
 Code reference:
-- Tool script: [query_analytics.py](file:///Users/gadingnst/Workspace/nouverse/nouva-mcp-server/src/skills/memory_engine/scripts/query_analytics.py)
+- Tool wrapper: [query_analytics.py](file:///Users/gadingnst/Workspace/nouverse/nouva-mcp-server/src/skills/memory_engine/tools/query_analytics.py)
+- Script: [query_analytics.py](file:///Users/gadingnst/Workspace/nouverse/nouva-mcp-server/src/skills/memory_engine/scripts/query_analytics.py)
 
 ```mermaid
 flowchart TD
@@ -193,4 +195,5 @@ flowchart TD
 ## 7. Known Operational Risks / Maintenance Notes
 
 - `MEMORY_INDEX.md` can grow continuously; if it becomes too large for good semantic mapping, it should be split (index-of-indexes + topic sub-indexes).
+- `memory_config.json` already reserves `multi_level_index_threshold_entries` and `multi_level_index_threshold_kb` for that future `MEMORY_INDEX.md` split/scaling strategy, but those thresholds are not enforced by runtime code yet.
 - Append-only logs (for retrieval diagnostics) should have a rotation/retention strategy to avoid becoming a new “bloat file”.
