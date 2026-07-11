@@ -56,7 +56,7 @@ Recommended create call:
 
 ### MCP tools exposed by this skill
 - `mcp_query_memory`: semantic recall (pgvector + fallback).
-- `mcp_query_analytics`: analytics over daily YAML summaries (projects/tags/people/technologies/mood) with time-series aggregation.
+- `mcp_query_analytics`: deterministic analytics executor over daily YAML summaries. Structured input only; the agent must parse natural language before calling it.
 - `mcp_write_transcript`: writes a session transcript into the memory workspace.
 - `mcp_sync_memory`: runs the sync pipeline.
 
@@ -69,10 +69,37 @@ Use these rules to keep analytics answers deterministic (not "LLM guessing"):
   - "every <weekday>"
   - "last 2 weeks / last month"
   - "what did I talk about most"
+- Before calling `mcp_query_analytics`, convert the user's question into explicit structured arguments.
+- Never send raw natural-language questions to `mcp_query_analytics`.
 - Use `mcp_query_memory` for detail/context recall:
   - "explain the details from that time"
   - "why / what decision / what plan"
   - "find the conversation that discussed ..."
+
+### `mcp_query_analytics` contract
+Supported intents:
+
+- `dates_for_value`: find which dates contain a value in `projects`, `tags`, `people`, or `technologies`.
+- `top_values`: count top values in one array column across a date range.
+- `mood_timeseries`: list mood by date across a date range.
+- `mood_distribution_by_weekday`: aggregate mood counts for one weekday.
+
+Supported fields:
+
+- `intent`: required.
+- `column`: required for `dates_for_value` and `top_values`. Allowed values: `projects`, `tags`, `people`, `technologies`.
+- `value`: required for `dates_for_value`.
+- `start_date`, `end_date`: ISO `YYYY-MM-DD`. Required for `mood_timeseries`. Optional for `dates_for_value`. Optional for `top_values` and defaults to the last 30 days if omitted.
+- `weekday`: integer `0..6` where `0=Monday`.
+- `weekday_name`: alternative to `weekday`, allowed values `monday..sunday`.
+- `limit`: optional for `top_values`, range `1..50`, default `20`.
+
+Examples:
+
+- `{"intent":"top_values","column":"tags","start_date":"2025-05-01","end_date":"2025-05-31","limit":10}`
+- `{"intent":"dates_for_value","column":"projects","value":"Nouverse"}`
+- `{"intent":"mood_timeseries","start_date":"2026-07-01","end_date":"2026-07-10"}`
+- `{"intent":"mood_distribution_by_weekday","weekday":1}`
 
 ### MCP client configuration (agent side)
 The agent must be configured to connect to this MCP server (via Stdio or SSE) to call the tools above.

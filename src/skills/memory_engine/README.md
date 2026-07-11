@@ -60,3 +60,66 @@ The auto-sync script runs periodically (recommended: daily via cron) to keep bot
 ```bash
 python3 src/skills/memory_engine/scripts/auto_sync.py
 ```
+
+---
+
+## Analytics Tool Contract
+
+`mcp_query_analytics` is now a deterministic executor with **structured input only**.
+
+- Do not send natural-language questions directly to the tool.
+- The agent/client must first parse the user's request into explicit arguments.
+- Supported intents: `dates_for_value`, `top_values`, `mood_timeseries`, `mood_distribution_by_weekday`.
+
+### Supported Fields
+
+- `intent`: required.
+- `column`: required for `dates_for_value` and `top_values`. Allowed values: `projects`, `tags`, `people`, `technologies`.
+- `value`: required for `dates_for_value`.
+- `start_date`, `end_date`: ISO `YYYY-MM-DD`. Required for `mood_timeseries`. Optional for `dates_for_value`. Optional for `top_values`, which defaults to the last 30 days when both are omitted.
+- `weekday`: integer `0..6` (`0=Monday`).
+- `weekday_name`: alternative to `weekday`, allowed values `monday..sunday`.
+- `limit`: optional for `top_values`, range `1..50`, default `20`.
+
+### Example Tool Calls
+
+Top tags in May 2025:
+
+```json
+{
+  "intent": "top_values",
+  "column": "tags",
+  "start_date": "2025-05-01",
+  "end_date": "2025-05-31",
+  "limit": 10
+}
+```
+
+Dates associated with a project:
+
+```json
+{
+  "intent": "dates_for_value",
+  "column": "projects",
+  "value": "Nouverse"
+}
+```
+
+Mood timeseries:
+
+```json
+{
+  "intent": "mood_timeseries",
+  "start_date": "2026-07-01",
+  "end_date": "2026-07-10"
+}
+```
+
+Mood distribution by weekday:
+
+```json
+{
+  "intent": "mood_distribution_by_weekday",
+  "weekday": 1
+}
+```

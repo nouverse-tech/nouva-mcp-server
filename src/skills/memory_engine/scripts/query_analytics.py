@@ -1,13 +1,12 @@
 import os
 import sys
-import re
+import json
 import datetime
 
 sys.path.insert(0, os.path.dirname(__file__))
 
 from db import db_helper
 from util.load_config import load_memory_config
-from util.llm_client import call_chat_completions, extract_json_object
 from sync.analytics_sync import load_daily_summaries_from_files, sync_daily_summaries_to_db
 from db.analytics_repo import (
     ensure_schema,
@@ -38,98 +37,52 @@ _WEEKDAY_DISPLAY = {
     6: "Sunday",
 }
 
-_PROJECT_PATTERNS = [
-    r"(?:which|what)\s+days\s+(?:did\s+we\s+)?(?:work|worked)\s+on\s+(?:the\s+)?project\s+(.+?)(?:\?|$)",
-    r"on\s+which\s+days\s+(?:did\s+we\s+)?(?:work|worked)\s+on\s+(?:the\s+)?project\s+(.+?)(?:\?|$)",
-]
+_VALID_INTENTS = {
+    "dates_for_value",
+    "top_values",
+    "mood_timeseries",
+    "mood_distribution_by_weekday",
+}
 
-_WEEKDAY_PATTERNS = [
-    r"(?:every|each)\s+([a-z]+)",
-]
+_SCHEMA_HELP = (
+    "Structured analytics query required. Supported intents: "
+    "dates_for_value, top_values, mood_timeseries, mood_distribution_by_weekday.\n"
+    "Fields: intent, column, value, start_date, end_date, weekday, weekday_name, limit.\n"
+    "Examples:\n"
+    '- {"intent":"top_values","column":"tags","start_date":"2025-05-01","end_date":"2025-05-31","limit":10}\n'
+    '- {"intent":"dates_for_value","column":"projects","value":"Nouverse"}\n'
+    '- {"intent":"mood_distribution_by_weekday","weekday":1}'
+)
 
 
-def _parse_iso_date(value: str) -> datetime.date | None:
-    if not value or not isinstance(value, str):
+def _parse_iso_date(value: str | None) -> datetime.date | None:
+    """Parse an ISO date string into a date object."""
+    if not value:
         return None
     try:
-        return datetime.datetime.strptime(value.strip(), "%Y-%m-%d").date()
-    except Exception:
-        return None
+        return datetime.datetime.strptime(str(value).strip(), "%Y-%m-%d").date()
+    except Exception as exc:
+        raise ValueError(f"Invalid date '{value}'. Expected YYYY-MM-DD.") from exc
 
 
-def _normalize_array_column(value: str) -> str | None:
-    if not value or not isinstance(value, str):
+def _normalize_array_column(value: str | None) -> str | None:
+    """Normalize supported analytics array columns."""
+    if not value:
         return None
-    v = value.strip().lower()
+    v = str(value).strip().lower()
     if v in ["projects", "project"]:
         return "projects"
     if v in ["tags", "tag", "topics", "topic"]:
         return "tags"
-    if v in ["people", "person", "persons", "personas"]:
+    if v in ["people", "person", "persons"]:
         return "people"
     if v in ["technologies", "technology", "tech", "stack"]:
         return "technologies"
     return None
 
 
-def _llm_parse_analytics_question(question: str, config: dict) -> dict | None:
-    today = datetime.date.today().strftime("%Y-%m-%d")
-    prompt = f"""
-You convert a user's analytics question about daily summaries into a STRICT JSON object only.
-
-Reference date (today): {today}
-
-Supported intents (choose exactly one):
-- "dates_for_value": find which dates contain a value in an array column.
-  Required: column, value. Optional: start_date, end_date.
-- "top_values": top values in an array column within a date range.
-  Required: column. Optional: start_date, end_date, limit.
-- "mood_timeseries": mood over time.
-  Required: start_date, end_date.
-- "mood_distribution_by_weekday": mood distribution for a weekday.
-  Required: weekday (0=Monday .. 6=Sunday) OR weekday_name ("monday".."sunday").
-
-Output schema:
-{{
-  "intent": "dates_for_value|top_values|mood_timeseries|mood_distribution_by_weekday|unknown",
-  "column": "projects|tags|people|technologies|null",
-  "value": "string|null",
-  "start_date": "YYYY-MM-DD|null",
-  "end_date": "YYYY-MM-DD|null",
-  "weekday": 0-6|null,
-  "weekday_name": "monday|tuesday|...|sunday|null",
-  "limit": 1-50|null,
-  "reason": "string|null"
-}}
-
-Date interpretation rules (Indonesian + English):
-- "3 hari yang lalu" / "3 days ago": that exact date (start_date=end_date).
-- "2 bulan yang lalu" / "2 months ago": the CALENDAR month N months before the current month (start=1st, end=last day).
-- "bulan Mei" / "May": choose the most recent such month not in the future relative to today.
-- "bulan Mei 2025" / "May 2025": that calendar month (start=2025-05-01, end=2025-05-31).
-- "2 minggu terakhir" / "last 2 weeks": inclusive range of 14 days (end=today, start=today-13).
-- "antara X dan Y" / "between X and Y" / "dari X sampai Y": exact inclusive range.
-- If no date range is provided:
-  - dates_for_value: keep start_date/end_date as null.
-  - top_values: default to last 30 days (end=today, start=today-29).
-
-Column inference hints:
-- projects: project names
-- technologies: tech stack, tools, frameworks
-- tags: discussion topics
-- people: names
-
-Return "unknown" if you cannot confidently map the question to the supported intents.
-
-Question: {question}
-""".strip()
-
-    content = call_chat_completions([{"role": "user", "content": prompt}], config, temperature=0.1, timeout_s=60)
-    parsed = extract_json_object(content or "")
-    return parsed if isinstance(parsed, dict) else None
-
-
 def _map_query_value(value: str, category: str, config: dict) -> list[str]:
+    """Expand a query value using configured link mappings."""
     v = (value or "").strip()
     if not v:
         return []
@@ -142,71 +95,103 @@ def _map_query_value(value: str, category: str, config: dict) -> list[str]:
     return variants
 
 
-def _previous_month_range(today: datetime.date) -> tuple[datetime.date, datetime.date]:
-    first_of_this_month = today.replace(day=1)
-    last_of_prev_month = first_of_this_month - datetime.timedelta(days=1)
-    first_of_prev_month = last_of_prev_month.replace(day=1)
-    return first_of_prev_month, last_of_prev_month
-
-
 def _render_date_list(dates: list[datetime.date]) -> str:
+    """Render a list of dates as markdown bullets."""
     if not dates:
         return "(empty)"
     return "\n".join([f"- {d.strftime('%Y-%m-%d')}" for d in dates])
 
 
 def _render_kv_table(rows: list[tuple[str, int]]) -> str:
+    """Render key/value analytics rows as markdown bullets."""
     if not rows:
         return "(empty)"
     return "\n".join([f"- {k}: {v}" for k, v in rows])
 
 
-def _extract_first_match(patterns: list[str], text: str) -> re.Match | None:
-    for p in patterns:
-        m = re.search(p, text)
-        if m:
-            return m
+def _default_top_values_range() -> tuple[datetime.date, datetime.date]:
+    """Return the default date window for top_values when none is provided."""
+    end_date = datetime.date.today()
+    start_date = end_date - datetime.timedelta(days=29)
+    return start_date, end_date
+
+
+def _normalize_weekday(weekday: int | str | None, weekday_name: str | None) -> int | None:
+    """Normalize weekday from integer or weekday name."""
+    if weekday is not None:
+        try:
+            parsed = int(weekday)
+        except Exception as exc:
+            raise ValueError("weekday must be an integer between 0 and 6.") from exc
+        if parsed not in _WEEKDAY_DISPLAY:
+            raise ValueError("weekday must be between 0 (Monday) and 6 (Sunday).")
+        return parsed
+
+    if weekday_name:
+        parsed = _WEEKDAY_MAP.get(str(weekday_name).strip().lower())
+        if parsed is None:
+            raise ValueError("weekday_name must be one of monday..sunday.")
+        return parsed
+
     return None
 
 
-def _extract_project_from_question(question: str, question_lower: str) -> str | None:
-    m = _extract_first_match(_PROJECT_PATTERNS, question_lower)
-    if not m:
-        return None
-    return question[m.start(1):m.end(1)].strip().strip('"').strip("'")
+def _validate_request(request: dict) -> dict:
+    """Validate and normalize a structured analytics request."""
+    if not isinstance(request, dict):
+        raise ValueError("Analytics input must be a JSON object.")
 
+    intent = str(request.get("intent") or "").strip()
+    if intent not in _VALID_INTENTS:
+        raise ValueError(f"Unsupported intent '{intent}'.")
 
-def _extract_weekday_from_question(question_lower: str) -> int | None:
-    m = _extract_first_match(_WEEKDAY_PATTERNS, question_lower)
-    if not m:
-        return None
-    return _WEEKDAY_MAP.get(m.group(1))
+    start_date = _parse_iso_date(request.get("start_date"))
+    end_date = _parse_iso_date(request.get("end_date"))
+    if (start_date and not end_date) or (end_date and not start_date):
+        raise ValueError("start_date and end_date must be provided together.")
+    if start_date and end_date and start_date > end_date:
+        raise ValueError("start_date cannot be after end_date.")
 
+    column = _normalize_array_column(request.get("column"))
+    value = request.get("value")
+    weekday = _normalize_weekday(request.get("weekday"), request.get("weekday_name"))
+    limit = request.get("limit")
 
-def _is_last_two_weeks_question(question_lower: str) -> bool:
-    return any(
-        k in question_lower
-        for k in [
-            "2 weeks",
-            "two weeks",
-            "last 2 weeks",
-            "past 2 weeks",
-            "previous 2 weeks",
-        ]
-    )
+    if intent in {"dates_for_value", "top_values"} and not column:
+        raise ValueError(f"intent '{intent}' requires column.")
+    if intent == "dates_for_value" and not value:
+        raise ValueError("intent 'dates_for_value' requires value.")
+    if intent == "mood_timeseries" and not (start_date and end_date):
+        raise ValueError("intent 'mood_timeseries' requires start_date and end_date.")
+    if intent == "mood_distribution_by_weekday" and weekday is None:
+        raise ValueError("intent 'mood_distribution_by_weekday' requires weekday or weekday_name.")
 
+    if limit is not None:
+        try:
+            limit = int(limit)
+        except Exception as exc:
+            raise ValueError("limit must be an integer between 1 and 50.") from exc
+        if limit < 1 or limit > 50:
+            raise ValueError("limit must be between 1 and 50.")
 
-def _is_last_month_question(question_lower: str) -> bool:
-    return any(
-        k in question_lower
-        for k in [
-            "last month",
-            "previous month",
-        ]
-    )
+    if intent == "top_values" and limit is None:
+        limit = 20
+    if intent == "top_values" and not (start_date and end_date):
+        start_date, end_date = _default_top_values_range()
+
+    return {
+        "intent": intent,
+        "column": column,
+        "value": str(value).strip() if value is not None else None,
+        "start_date": start_date,
+        "end_date": end_date,
+        "weekday": weekday,
+        "limit": limit,
+    }
 
 
 def _try_sync_db(config: dict) -> bool:
+    """Attempt to refresh analytics rows into Postgres."""
     try:
         sync_daily_summaries_to_db(config)
         return True
@@ -214,26 +199,20 @@ def _try_sync_db(config: dict) -> bool:
         return False
 
 
-def _execute_parsed_query_db(parsed: dict, config: dict, conn) -> str | None:
-    if not isinstance(parsed, dict):
-        return None
-
-    intent = (parsed.get("intent") or "").strip()
-    if intent == "unknown" or not intent:
-        return None
-
-    column = _normalize_array_column(parsed.get("column"))
-    value = parsed.get("value")
-    start_date = _parse_iso_date(parsed.get("start_date"))
-    end_date = _parse_iso_date(parsed.get("end_date"))
+def _execute_query_db(request: dict, config: dict, conn) -> str | None:
+    """Execute a normalized analytics request against Postgres."""
+    intent = request["intent"]
+    column = request["column"]
+    value = request["value"]
+    start_date = request["start_date"]
+    end_date = request["end_date"]
+    weekday = request["weekday"]
 
     if intent == "dates_for_value":
-        if not column or not value:
-            return None
-        variants = _map_query_value(str(value), column, config) or [str(value).strip()]
+        variants = _map_query_value(value, column, config) or [value]
         all_dates = []
-        for v in variants:
-            all_dates += get_dates_for_array_value(conn, column, v)
+        for variant in variants:
+            all_dates += get_dates_for_array_value(conn, column, variant)
         dates = sorted(set(all_dates))
         if start_date and end_date:
             dates = [d for d in dates if start_date <= d <= end_date]
@@ -241,39 +220,15 @@ def _execute_parsed_query_db(parsed: dict, config: dict, conn) -> str | None:
         return f"Dates associated with {column} '{value}'{range_part}:\n{_render_date_list(dates)}"
 
     if intent == "top_values":
-        if not column:
-            return None
-        if not start_date or not end_date:
-            today = datetime.date.today()
-            end_date = today
-            start_date = today - datetime.timedelta(days=29)
-        limit = parsed.get("limit")
-        try:
-            limit = int(limit) if limit is not None else 20
-        except Exception:
-            limit = 20
-        limit = max(1, min(limit, 50))
-        rows = get_top_values(conn, column, start_date, end_date, limit=limit)
+        rows = get_top_values(conn, column, start_date, end_date, limit=request["limit"])
         return f"Top {column} ({start_date} to {end_date}):\n{_render_kv_table(rows)}"
 
     if intent == "mood_timeseries":
-        if not start_date or not end_date:
-            return None
         series = get_mood_timeseries(conn, start_date, end_date)
         lines = [f"- {d.strftime('%Y-%m-%d')}: {m}" for d, m in series]
         return f"Mood over time ({start_date} to {end_date}):\n" + ("\n".join(lines) if lines else "(empty)")
 
     if intent == "mood_distribution_by_weekday":
-        weekday = parsed.get("weekday")
-        if weekday is None:
-            weekday_name = (parsed.get("weekday_name") or "").strip().lower()
-            weekday = _WEEKDAY_MAP.get(weekday_name)
-        try:
-            weekday = int(weekday) if weekday is not None else None
-        except Exception:
-            weekday = None
-        if weekday is None or weekday not in _WEEKDAY_DISPLAY:
-            return None
         dist = get_mood_distribution_by_weekday(conn, weekday)
         day_name = _WEEKDAY_DISPLAY.get(weekday, str(weekday))
         return f"Mood distribution on {day_name}:\n{_render_kv_table(dist)}"
@@ -281,238 +236,110 @@ def _execute_parsed_query_db(parsed: dict, config: dict, conn) -> str | None:
     return None
 
 
-def _answer_from_db(question: str, config: dict) -> str | None:
-    today = datetime.date.today()
-    q = question.strip()
-    q_lower = q.lower()
-
-    conn = db_helper.get_db_connection()
-    try:
-        ensure_schema(conn)
-
-        project = _extract_project_from_question(q, q_lower)
-        if project:
-            variants = _map_query_value(project, "projects", config)
-            all_dates = []
-            for v in variants:
-                all_dates += get_dates_for_array_value(conn, "projects", v)
-            dates = sorted(set(all_dates))
-            return f"Dates associated with project '{project}':\n{_render_date_list(dates)}"
-
-        weekday = _extract_weekday_from_question(q_lower)
-        if weekday is not None:
-            dist = get_mood_distribution_by_weekday(conn, weekday)
-            day_name = _WEEKDAY_DISPLAY.get(weekday, str(weekday))
-            return f"Mood distribution on {day_name}:\n{_render_kv_table(dist)}"
-
-        if _is_last_two_weeks_question(q_lower):
-            end_date = today
-            start_date = today - datetime.timedelta(days=13)
-            series = get_mood_timeseries(conn, start_date, end_date)
-            lines = [f"- {d.strftime('%Y-%m-%d')}: {m}" for d, m in series]
-            return f"Mood over the last 2 weeks ({start_date} to {end_date}):\n" + ("\n".join(lines) if lines else "(empty)")
-
-        if _is_last_month_question(q_lower):
-            start_date, end_date = _previous_month_range(today)
-            top_tags = get_top_values(conn, "tags", start_date, end_date, limit=20)
-            top_projects = get_top_values(conn, "projects", start_date, end_date, limit=10)
-            top_tech = get_top_values(conn, "technologies", start_date, end_date, limit=10)
-            parts = [
-                f"Top topics (tags) last month ({start_date} to {end_date}):\n{_render_kv_table(top_tags)}",
-                f"\nTop projects last month:\n{_render_kv_table(top_projects)}",
-                f"\nTop technologies last month:\n{_render_kv_table(top_tech)}",
-            ]
-            return "\n".join(parts).strip()
-
-        return None
-    finally:
-        conn.close()
-
-
-def _answer_from_files(question: str, config: dict) -> str | None:
-    today = datetime.date.today()
-    q = question.strip()
-    q_lower = q.lower()
-
+def _execute_query_files(request: dict, config: dict) -> str | None:
+    """Execute a normalized analytics request against loaded summary files."""
     summaries = load_daily_summaries_from_files(config)
     if not summaries:
         return "No daily summaries are available for analytics."
 
-    project = _extract_project_from_question(q, q_lower)
-    if project:
-        variants = _map_query_value(project, "projects", config)
+    intent = request["intent"]
+    column = request["column"]
+    value = request["value"]
+    start_date = request["start_date"]
+    end_date = request["end_date"]
+    weekday = request["weekday"]
+
+    if intent == "dates_for_value":
+        variants = _map_query_value(value, column, config) or [value]
         variants_lower = {v.lower() for v in variants}
         dates = sorted(
             [
-                s["date"]
-                for s in summaries
-                if any(p.lower() in variants_lower for p in (s.get("projects") or []))
+                summary["date"]
+                for summary in summaries
+                if any(item.lower() in variants_lower for item in (summary.get(column) or []))
             ]
         )
-        return f"Dates associated with project '{project}':\n{_render_date_list(dates)}"
+        if start_date and end_date:
+            dates = [d for d in dates if start_date <= d <= end_date]
+        range_part = f" ({start_date} to {end_date})" if start_date and end_date else ""
+        return f"Dates associated with {column} '{value}'{range_part}:\n{_render_date_list(dates)}"
 
-    weekday = _extract_weekday_from_question(q_lower)
-    if weekday is not None:
+    if intent == "top_values":
+        window = [summary for summary in summaries if start_date <= summary["date"] <= end_date]
         counts = {}
-        for s in summaries:
-            if s.get("weekday") != weekday:
+        for summary in window:
+            for item in (summary.get(column) or []):
+                if item:
+                    counts[item] = counts.get(item, 0) + 1
+        rows = sorted(counts.items(), key=lambda x: (-x[1], x[0]))[:request["limit"]]
+        return f"Top {column} ({start_date} to {end_date}):\n{_render_kv_table(rows)}"
+
+    if intent == "mood_timeseries":
+        series = sorted(
+            [summary for summary in summaries if start_date <= summary["date"] <= end_date],
+            key=lambda x: x["date"]
+        )
+        lines = [f"- {summary['date'].strftime('%Y-%m-%d')}: {summary.get('mood') or '(none)'}" for summary in series]
+        return f"Mood over time ({start_date} to {end_date}):\n" + ("\n".join(lines) if lines else "(empty)")
+
+    if intent == "mood_distribution_by_weekday":
+        counts = {}
+        for summary in summaries:
+            if summary.get("weekday") != weekday:
                 continue
-            mood = s.get("mood") or "(none)"
+            mood = summary.get("mood") or "(none)"
             counts[mood] = counts.get(mood, 0) + 1
         dist = sorted(counts.items(), key=lambda x: (-x[1], x[0]))
         day_name = _WEEKDAY_DISPLAY.get(weekday, str(weekday))
         return f"Mood distribution on {day_name}:\n{_render_kv_table(dist)}"
 
-    if _is_last_two_weeks_question(q_lower):
-        end_date = today
-        start_date = today - datetime.timedelta(days=13)
-        series = sorted([s for s in summaries if start_date <= s["date"] <= end_date], key=lambda x: x["date"])
-        lines = [f"- {s['date'].strftime('%Y-%m-%d')}: {s.get('mood') or '(none)'}" for s in series]
-        return f"Mood over the last 2 weeks ({start_date} to {end_date}):\n" + ("\n".join(lines) if lines else "(empty)")
-
-    if _is_last_month_question(q_lower):
-        start_date, end_date = _previous_month_range(today)
-        month_summaries = [s for s in summaries if start_date <= s["date"] <= end_date]
-
-        def top_from_key(key: str, limit: int):
-            counts = {}
-            for s in month_summaries:
-                for v in (s.get(key) or []):
-                    counts[v] = counts.get(v, 0) + 1
-            return sorted(counts.items(), key=lambda x: (-x[1], x[0]))[:limit]
-
-        top_tags = top_from_key("tags", 20)
-        top_projects = top_from_key("projects", 10)
-        top_tech = top_from_key("technologies", 10)
-        parts = [
-            f"Top topics (tags) last month ({start_date} to {end_date}):\n{_render_kv_table(top_tags)}",
-            f"\nTop projects last month:\n{_render_kv_table(top_projects)}",
-            f"\nTop technologies last month:\n{_render_kv_table(top_tech)}",
-        ]
-        return "\n".join(parts).strip()
-
     return None
 
 
-def query_analytics(question: str) -> str:
+def query_analytics(request: dict) -> str:
+    """Run a structured analytics request against the analytics lane."""
+    try:
+        normalized = _validate_request(request)
+    except ValueError as exc:
+        return f"Invalid analytics query: {exc}\n{_SCHEMA_HELP}"
+
     config = load_memory_config()
     if not isinstance(config, dict):
         config = {}
 
     try:
-        synced = _try_sync_db(config)
-        if synced:
-            answer = _answer_from_db(question, config)
-            if answer:
-                return answer
-
+        if _try_sync_db(config):
             conn = db_helper.get_db_connection()
             try:
                 ensure_schema(conn)
-                parsed = _llm_parse_analytics_question(question, config)
-                llm_answer = _execute_parsed_query_db(parsed, config, conn)
-                if llm_answer:
-                    return llm_answer
+                answer = _execute_query_db(normalized, config, conn)
+                if answer:
+                    return answer
             finally:
                 conn.close()
     except Exception:
         pass
 
-    answer = _answer_from_files(question, config)
+    answer = _execute_query_files(normalized, config)
     if answer:
         return answer
 
-    try:
-        parsed = _llm_parse_analytics_question(question, config)
-        if not isinstance(parsed, dict):
-            raise ValueError("LLM parse failed")
-
-        intent = (parsed.get("intent") or "").strip()
-        if intent and intent != "unknown":
-            summaries = load_daily_summaries_from_files(config)
-            if summaries:
-                column = _normalize_array_column(parsed.get("column"))
-                value = parsed.get("value")
-                start_date = _parse_iso_date(parsed.get("start_date"))
-                end_date = _parse_iso_date(parsed.get("end_date"))
-
-                if intent == "dates_for_value" and column and value:
-                    variants = _map_query_value(str(value), column, config) or [str(value).strip()]
-                    variants_lower = {v.lower() for v in variants}
-                    dates = sorted(
-                        [
-                            s["date"]
-                            for s in summaries
-                            if any(p.lower() in variants_lower for p in (s.get(column) or []))
-                        ]
-                    )
-                    if start_date and end_date:
-                        dates = [d for d in dates if start_date <= d <= end_date]
-                    range_part = f" ({start_date} to {end_date})" if start_date and end_date else ""
-                    return f"Dates associated with {column} '{value}'{range_part}:\n{_render_date_list(dates)}"
-
-                if intent == "top_values" and column:
-                    if not start_date or not end_date:
-                        end_date = datetime.date.today()
-                        start_date = end_date - datetime.timedelta(days=29)
-                    limit = parsed.get("limit")
-                    try:
-                        limit = int(limit) if limit is not None else 20
-                    except Exception:
-                        limit = 20
-                    limit = max(1, min(limit, 50))
-                    window = [s for s in summaries if start_date <= s["date"] <= end_date]
-                    counts = {}
-                    for s in window:
-                        for v in (s.get(column) or []):
-                            if not v:
-                                continue
-                            counts[v] = counts.get(v, 0) + 1
-                    rows = sorted(counts.items(), key=lambda x: (-x[1], x[0]))[:limit]
-                    return f"Top {column} ({start_date} to {end_date}):\n{_render_kv_table(rows)}"
-
-                if intent == "mood_timeseries" and start_date and end_date:
-                    series = sorted([s for s in summaries if start_date <= s["date"] <= end_date], key=lambda x: x["date"])
-                    lines = [f"- {s['date'].strftime('%Y-%m-%d')}: {s.get('mood') or '(none)'}" for s in series]
-                    return f"Mood over time ({start_date} to {end_date}):\n" + ("\n".join(lines) if lines else "(empty)")
-
-                if intent == "mood_distribution_by_weekday":
-                    weekday = parsed.get("weekday")
-                    if weekday is None:
-                        weekday_name = (parsed.get("weekday_name") or "").strip().lower()
-                        weekday = _WEEKDAY_MAP.get(weekday_name)
-                    try:
-                        weekday = int(weekday) if weekday is not None else None
-                    except Exception:
-                        weekday = None
-                    if weekday is not None:
-                        counts = {}
-                        for s in summaries:
-                            if s.get("weekday") != weekday:
-                                continue
-                            mood = s.get("mood") or "(none)"
-                            counts[mood] = counts.get(mood, 0) + 1
-                        dist = sorted(counts.items(), key=lambda x: (-x[1], x[0]))
-                        day_name = _WEEKDAY_DISPLAY.get(weekday, str(weekday))
-                        return f"Mood distribution on {day_name}:\n{_render_kv_table(dist)}"
-    except Exception:
-        pass
-
-    return (
-        "Unsupported analytics question. Try formats like: "
-        "'Which days did we work on project <name>?', "
-        "'What is my mood distribution on every Tuesday?', "
-        "'What is my mood over the last 2 weeks?', "
-        "or 'What topics did I talk about most last month?'."
-    )
+    return "No analytics result was produced for the provided structured query."
 
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: python3 query_analytics.py \"question\"")
+    """CLI entrypoint for structured analytics execution."""
+    if len(sys.argv) != 2:
+        print(f"Usage: python3 query_analytics.py '<json_object>'\n{_SCHEMA_HELP}")
         sys.exit(1)
-    question = " ".join(sys.argv[1:]).strip()
-    print(query_analytics(question))
+
+    try:
+        request = json.loads(sys.argv[1])
+    except Exception as exc:
+        print(f"Invalid analytics JSON payload: {exc}\n{_SCHEMA_HELP}")
+        sys.exit(1)
+
+    print(query_analytics(request))
 
 
 if __name__ == "__main__":

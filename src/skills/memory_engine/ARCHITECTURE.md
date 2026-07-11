@@ -161,12 +161,19 @@ flowchart TD
 
 Analytics queries should not be answered by semantic search. They are routed to SQL over `daily_summaries` and return deterministic results (counts, distributions, top values, date lists).
 
+`query_analytics.py` is now an executor only:
+
+- It accepts **structured analytics arguments**, not natural-language questions.
+- Natural-language parsing belongs in the agent/client layer.
+- The server validates the structured payload, syncs `daily_summaries`, then executes SQL or file-backed fallback logic.
+
 Code reference:
 - Tool script: [query_analytics.py](file:///Users/gadingnst/Workspace/nouverse/nouva-mcp-server/src/skills/memory_engine/scripts/query_analytics.py)
 
 ```mermaid
 flowchart TD
-  U["User analytics question\n(trends / counts / top X)"] --> QA["query_analytics.py"]
+  U["User analytics question\n(trends / counts / top X)"] --> AGENT["Agent/client parser\nconverts NL -> structured args"]
+  AGENT --> QA["query_analytics.py\n(validate + execute)"]
   QA --> SYNC["sync_daily_summaries_to_db()"]
   SYNC --> SQL["SQL queries on daily_summaries"]
   SQL --> OUT["Deterministic analytics answer\n(+ optional date list)"]

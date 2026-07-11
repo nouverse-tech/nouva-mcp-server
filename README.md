@@ -47,7 +47,7 @@ nouva-mcp-server/
 │   │   │   ├── scripts/
 │   │   │   │   ├── auto_sync.py         # Memory auto-sync cron script
 │   │   │   │   ├── query_memory.py      # Hybrid search query engine
-│   │   │   │   ├── query_analytics.py   # Deterministic analytics query engine
+│   │   │   │   ├── query_analytics.py   # Deterministic structured analytics executor
 │   │   │   │   ├── db/                  # DB helpers and init scripts
 │   │   │   │   │   ├── init_db.py
 │   │   │   │   │   ├── db_helper.py
@@ -57,7 +57,7 @@ nouva-mcp-server/
 │   │   │   │       └── analytics_sync.py
 │   │   │   └── tools/
 │   │   │       ├── query_memory.py # Tool: query_memory
-│   │   │       ├── query_analytics.py # Tool: query_analytics
+│   │   │       ├── query_analytics.py # Tool: structured analytics executor
 │   │   │       └── sync_memory.py  # Tool: sync_memory
 │   │   ├── mcp_management/
 │   │   │   ├── SKILL.md       # Scaffolding guidelines (Resource)
@@ -227,7 +227,7 @@ Then connect using:
 ### Do you need additional editor guidelines?
 
 Connecting to the MCP server is enough for tool discovery. For best results, add a short routing rule in your agent instructions:
-- Use `mcp_query_analytics` for aggregation/time-series questions (patterns, trends, "last month", weekdays).
+- Use `mcp_query_analytics` for aggregation/time-series questions, but call it with structured arguments only after the agent parses the user's natural-language request.
 - Use `mcp_query_memory` for detailed recall and context.
 
 ---
