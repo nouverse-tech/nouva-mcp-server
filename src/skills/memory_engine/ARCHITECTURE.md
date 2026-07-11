@@ -46,50 +46,46 @@ Code references:
 
 ---
 
-## 2. System Overview Diagram (As Implemented)
+## 2. End-to-End Architecture Overview
+
+This diagram provides a high-level overview of the entire memory engine, showing how user queries, the three-tier retrieval pipeline, the databases, and the background sync process interact.
 
 ```mermaid
-flowchart LR
-  subgraph Local["Active Memory Dir (local)"]
-    DN["YYYY-MM-DD.md (daily note)"]
-    RT["YYYY-MM-DD-*.md (raw transcripts)"]
-    SUM["summaries/YYYY-MM-DD.summary.md"]
-    IDX["MEMORY_INDEX.md"]
-    CORE["MEMORY.md / SOUL.md / USER.md / ..."]
-  end
+flowchart TD
+ subgraph UserTurn [User Interaction]
+ Q[User Query] --> QM[query_memory.py]
+ end
 
-  subgraph NAS["Archived Memory Dir (NAS)"]
-    NASDAY["daily_sessions/YYYY-MM-DD/*"]
-    NASSUM["daily_sessions/summaries/*.summary.md"]
-    NASIDX["indexes/MEMORY_INDEX.md"]
-    ENT["entities/*.md"]
-  end
+ subgraph Tier1 [Tier 1: Semantic Index Map]
+ QM --> |1. Vector Search| RAG[(Postgres + pgvector)]
+ RAG --> |2. Returned Dates| HS[Hybrid Scoring]
+ HS --> |3. 1-Hop Related Dates Expansion| EXP[Date Candidates]
+ end
 
-  subgraph PG["Postgres (RAG & Analytics Backends)"]
-    VEC["pgvector: nouva_memories (Semantic RAG)"]
-    ANA["SQL: daily_summaries (Analytics)"]
-  end
+ subgraph Tier2 [Tier 2: On-Demand Summaries]
+ EXP --> |4. Load Summaries| NAS_SUM[NAS: daily_sessions/summaries/]
+ NAS_SUM --> |5. Extract Clean Summary + Path + Links| QM
+ end
 
-  DN --> SUM
-  RT --> SUM
+ subgraph Tier3 [Tier 3: Lazy Loading Detail Chat]
+ QM --> |6. Return Clean Summary to LLM| LLM[LLM Agent]
+ LLM --> |7. Optional: Read Raw Logs if Details Needed| NAS_RAW[NAS: daily_sessions/YYYY-MM-DD/]
+ end
 
-  SUM --> IDX
-  IDX --> NASIDX
-
-  CORE --> VEC
-  IDX --> VEC
-
-  SUM --> ANA
-
-  DN --> NASDAY
-  RT --> NASDAY
-  SUM --> NASSUM
-  ENT --> NAS
+ subgraph SyncProcess [Sync Process - auto_sync.py]
+ Cron[Cron / Manual Run] --> Sync[auto_sync.py]
+ Sync --> |Generate| SumFiles[memory/summaries/YYYY-MM-DD.summary.md]
+ SumFiles --> |Sync to RAG| RAG
+ SumFiles --> |Archive to NAS| NAS_SUM
+ Sync --> |Archive Raw Logs to Subfolders| NAS_RAW
+ end
 ```
 
 ---
 
 ## 3. Sync Pipeline (auto_sync.py)
+
+*(This section details the **Sync Process** subgraph shown in the End-to-End Architecture Overview)*
 
 The sync process is orchestrated by `auto_sync.py` and is designed to be incremental and idempotent:
 
@@ -123,6 +119,8 @@ Summary generation uses a configurable LLM endpoint/model from `memory_config.js
 ---
 
 ## 4. Retrieval Flow (query_memory.py)
+
+*(This section details Tier 1, 2, and 3 of the **User Interaction** and **Retrieval Tiers** shown in the End-to-End Architecture Overview)*
 
 The RAG retrieval path is intentionally hybrid:
 
