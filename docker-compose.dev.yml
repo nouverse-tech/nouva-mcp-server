@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: ankane/pgvector:v0.5.1  # Postgres image with pgvector pre-installed
+    container_name: nouva-mcp-db-dev
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: agent_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: devpassword
+    volumes:
+      - pgdata-dev:/var/lib/postgresql/data
+
+  nouva-mcp-server:
+    build: .
+    container_name: nouva-mcp-server-dev
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount active and archived memory paths from the host
+      - ${NOUVA_ACTIVE_MEMORY_DIR:-./memories/active}:/root/.openclaw/workspace/memory
+      - ${NOUVA_ARCHIVED_MEMORY_DIR:-./memories/archived}:/mnt/nas_nouverse
+      # Mount the local dev config file
+      - ./src/skills/memory_engine/memory_config.json:/root/nouva-mcp-server/src/skills/memory_engine/memory_config.json
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: ["--transport", "sse", "--port", "8000"]
+    depends_on:
+      - postgres
+
+volumes:
+  pgdata-dev:

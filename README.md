@@ -124,11 +124,31 @@ We provide a lightweight setup to build and run the MCP server in a Docker conta
 docker build -t nouverse/nouva-mcp-server:latest .
 ```
 
-#### 2. Run with Docker Compose
+#### 2. Run with Docker Compose (Production/Standard)
 Ensure you have mapped your config files inside `docker-compose.yml`:
 ```bash
 docker compose up -d
 ```
+
+#### 3. Run with Docker Compose for Development (Development Setup)
+We provide a development configuration that spins up both the **PostgreSQL (with `pgvector` extension)** database and the **MCP Server** inside a single docker network.
+
+1. Copy the configuration file:
+   ```bash
+   cp src/skills/memory_engine/memory_config.example.json src/skills/memory_engine/memory_config.json
+   ```
+   *(Note: The default credentials in `memory_config.example.json` are pre-configured to match the local PostgreSQL container in `docker-compose.dev.yml`)*
+
+2. Run the development docker compose:
+   ```bash
+   docker compose -f docker-compose.dev.yml up -d
+   ```
+
+3. Initialize the development database:
+   Run the initialization script inside the container (or locally if you have python dependencies installed):
+   ```bash
+   docker exec -it nouva-mcp-server-dev python3 src/skills/memory_engine/scripts/db/init_db.py
+   ```
 
 ---
 
