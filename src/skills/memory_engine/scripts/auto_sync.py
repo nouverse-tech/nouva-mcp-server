@@ -19,7 +19,7 @@ from util.nas_helper import NasHelper
 from sync.summary_sync import reconcile_missing_summaries, generate_memory_index
 from sync.analytics_sync import sync_daily_summaries_to_db
 from sync.memory_sync import cleanup_local_rina_mentions, sync_memory_logs
-from sync.rag_sync import sync_core_files
+from sync.vector_sync import sync_vector_files
 from sync.openclaw_sync import WORKSPACE_ROOT, sync_core_files_to_nas
 
 CORE_FILES = [
@@ -62,8 +62,8 @@ def main():
         print("2. Generating memory index...")
         generate_memory_index(active_memory_dir, archived_memory_dir, nas)
 
-        print("3. Syncing core files to pgvector...")
-        sync_core_files(VECTOR_FILES, WORKSPACE_ROOT)
+        print("3. Syncing vector files to pgvector...")
+        sync_vector_files(VECTOR_FILES, WORKSPACE_ROOT)
 
         print("4. Archiving memory logs to NAS...")
         sync_memory_logs(active_memory_dir, nas)
