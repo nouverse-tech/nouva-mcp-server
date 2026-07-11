@@ -118,13 +118,12 @@ flowchart TD
 
   AS --> S1["reconcile_missing_summaries()\nensure summaries exist"]
   S1 --> S1b["inject_related_dates()\npgvector-assisted linking\n+ ensure entity stubs on NAS"]
-
-  AS --> S2["cleanup_local_rina_mentions()"]
-  AS --> S3["sync_daily_summaries_to_db()\n.summary.md -> daily_summaries"]
-  AS --> S4["generate_memory_index()\n_summaries -> MEMORY_INDEX.md"]
-  AS --> S5["sync_core_files()\nMEMORY_INDEX.md + core docs -> pgvector"]
-  AS --> S6["sync_memory_logs()\narchive daily notes + raw + summaries\n(sync-state.json; delete local)"]
-  AS --> S7["sync_core_files_to_nas()"]
+  S1b --> S2["cleanup_local_rina_mentions()"]
+  S2 --> S3["sync_daily_summaries_to_db()\n.summary.md -> daily_summaries"]
+  S3 --> S4["generate_memory_index()\n_summaries -> MEMORY_INDEX.md"]
+  S4 --> S5["sync_core_files()\nMEMORY_INDEX.md + core docs -> pgvector"]
+  S5 --> S6["sync_memory_logs()\narchive daily notes + raw + summaries\n(sync-state.json; delete local)"]
+  S6 --> S7["sync_core_files_to_nas()"]
 ```
 
 ### 3.2 Note on LLM Usage
