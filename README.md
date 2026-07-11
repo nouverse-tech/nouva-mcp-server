@@ -15,18 +15,21 @@ The server supports dual transport:
   (OpenClaw, Cursor, Zed, Claude Code)
         │
         ▼ (via stdio / SSE)
-┌─────────────────────────────────┐
-│           Nouva MCP Server      │
-│  ┌───────────────────────────┐  │
-│  │        Skills Engine       │  │ (dynamic loader under src/skills/)
-│  │  ┌─────────────────────┐  │  │
-│  │  │ Memory Engine       │  │  │ (pgvector recall + SQL analytics)
-│  │  └─────────────────────┘  │  │
-│  │  ┌─────────────────────┐  │  │
-│  │  │ Other Skills        │  │  │ (mcp_management, etc.)
-│  │  └─────────────────────┘  │  │
-│  └───────────────────────────┘  │
-└─────────────────────────────────┘
+┌────────────────────────────────────────────────────────┐
+│                    Nouva MCP Server                    │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │                  Skills Engine                   │  │ (dynamic loader under src/skills/)
+│  │  ┌────────────────────────────────────────────┐  │  │
+│  │  │               Memory Engine                │  │  │ (pgvector recall + SQL analytics)
+│  │  └────────────────────────────────────────────┘  │  │
+│  │  ┌────────────────────────────────────────────┐  │  │
+│  │  │              MCP Management                │  │  │ (scaffolding & creating new skills)
+│  │  └────────────────────────────────────────────┘  │  │
+│  │  ┌────────────────────────────────────────────┐  │  │
+│  │  │               Other Skills                 │  │  │ (custom tools, morning-report, etc.)
+│  │  └────────────────────────────────────────────┘  │  │
+│  └──────────────────────────────────────────────────┘  │
+└────────────────────────────────────────────────────────┘
 ```
 
 ### Skill migration rules (portable by design)
