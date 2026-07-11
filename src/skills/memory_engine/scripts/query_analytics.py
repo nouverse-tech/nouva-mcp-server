@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from db import db_helper
 from util.load_config import load_memory_config
-from sync.analytics_sync import load_daily_summaries_from_files, sync_daily_summaries_to_db
+from sync.analytics_sync import load_daily_summaries_from_files
 from db.analytics_repo import (
     ensure_schema,
     get_dates_for_array_value,
@@ -259,15 +259,6 @@ def _validate_request(request: dict) -> dict:
     }
 
 
-def _try_sync_db(config: dict) -> bool:
-    """Attempt to refresh analytics rows into Postgres."""
-    try:
-        sync_daily_summaries_to_db(config)
-        return True
-    except Exception:
-        return False
-
-
 def _execute_query_db(request: dict, config: dict, conn) -> str | None:
     """Execute a normalized analytics request against Postgres."""
     intent = request["intent"]
@@ -493,15 +484,14 @@ def query_analytics(request: dict) -> str:
         config = {}
 
     try:
-        if _try_sync_db(config):
-            conn = db_helper.get_db_connection()
-            try:
-                ensure_schema(conn)
-                answer = _execute_query_db(normalized, config, conn)
-                if answer:
-                    return answer
-            finally:
-                conn.close()
+        conn = db_helper.get_db_connection()
+        try:
+            ensure_schema(conn)
+            answer = _execute_query_db(normalized, config, conn)
+            if answer:
+                return answer
+        finally:
+            conn.close()
     except Exception:
         pass
 

@@ -181,13 +181,13 @@ In implementation terms, Tier 3 is not performed by `query_memory.py` itself. Th
 
 *(This section details the **Analytics Lane** shown in the End-to-End Architecture Overview)*
 
-Analytics queries should not be answered by semantic search. They are routed to SQL over `daily_summaries` and return deterministic results (counts, distributions, top values, date lists). If the DB path is unavailable, the same structured request falls back to file-backed summary parsing so the analytics lane remains usable.
+Analytics queries should not be answered by semantic search. They are routed to SQL over `daily_summaries` and return deterministic results (counts, distributions, top values, date lists). The SQL-backed dataset is refreshed by `auto_sync.py`. If the DB path is unavailable at query time, the same structured request falls back to file-backed summary parsing so the analytics lane remains usable.
 
 `query_analytics.py` is now an executor only:
 
 - It accepts **structured analytics arguments**, not natural-language questions.
 - Natural-language parsing belongs in the agent/client layer.
-- The server validates the structured payload, attempts to sync `daily_summaries`, then executes SQL first and falls back to file-backed summary logic if needed.
+- The server validates the structured payload, executes SQL against the existing `daily_summaries` dataset, and falls back to file-backed summary logic if needed.
 - The analytics contract now supports both base intents (`dates_for_value`, `top_values`, `mood_timeseries`, `mood_distribution_by_weekday`) and quick-win aggregate intents (`count_distinct_dates_for_value`, `count_by_period`, `grouped_top_values`, `average_importance`).
 
 Code reference:
@@ -198,8 +198,7 @@ Code reference:
 flowchart TD
   U["User analytics question\n(trends / counts / top X)"] --> AGENT["Agent/client parser\nconverts NL -> structured args"]
   AGENT --> QA["query_analytics.py\n(validate + execute)"]
-  QA --> SYNC["try sync_daily_summaries_to_db()"]
-  SYNC --> SQL["SQL queries on daily_summaries"]
+  QA --> SQL["SQL queries on daily_summaries"]
   SQL --> OUT["Deterministic analytics answer\n(+ optional date list)"]
   QA --> FB["Fallback: load _summaries from files"]
   FB --> OUT
