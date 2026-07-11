@@ -78,8 +78,8 @@
   },
   "max_related_dates": 2,
   "memory_paths": {
-    "active_memory_dir": "<path_to_your_active_memory_directory>",
-    "archived_memory_dir": "<path_to_your_archived_memory_directory>"
+    "active_memory_dir": "<your_project_root>/memories/active",
+    "archived_memory_dir": "<your_project_root>/memories/archived"
   },
   "database": {
     "host": "localhost",

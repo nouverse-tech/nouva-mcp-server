@@ -34,7 +34,9 @@ Then edit `memory_config.json` to match your infrastructure settings:
 - **`database.url`**: Full connection string (overrides individual fields if provided). Format: `postgresql://user:password@host:port/dbname`
 - **`embedding`**: URL and model name for generating embeddings.
 - **`llm`**: Local proxy URL and model used for daily summary generation. `timeout_seconds` is configurable; `temperature` falls back to the script default when omitted.
-- **`memory_paths`**: Active memory folder and archived NAS mount path.
+- **`memory_paths`**: Active memory folder and archived NAS mount path configurations:
+  - **`active_memory_dir`**: Path to the active/writable memory directory. This contains files that are still in the process of being written (e.g., today's ongoing session transcripts and daily notes, as today is not yet finished).
+  - **`archived_memory_dir`**: Path to the archived read-only memory directory. This contains historical daily sessions, summaries, and indexes that are no longer modified. In production, this directory is typically mounted to an external storage server like a NAS.
 - **`retrieval`**: Central tuning block for semantic recall:
   - `weights.semantic|importance|recency`
   - `decay_constant`
