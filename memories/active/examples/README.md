@@ -4,7 +4,7 @@ This folder contains committed example files that mirror the runtime layout of t
 
 Included example date:
 - `2026-06-20.md` for the parent daily note
-- `2026-06-20-0001.md` for a session transcript
+- `2026-06-20-0001.md` for a raw session transcript using repeated `user:` / `assistant:` turn blocks
 - `_summaries/2026-06-20.summary.md` for the generated daily summary
 - `MEMORY_INDEX.md` for the historical memory map index
 

@@ -17,6 +17,7 @@ Use this skill for Nouva's 2-lane memory system:
 - `mcp_grep_memory`: search for a specific keyword or pattern inside all memory markdown files (active and/or archived).
 - `mcp_read_memory_file`: read the raw content of a specific memory markdown file using its relative path.
 - `mcp_write_transcript`: writes a session transcript into the memory workspace.
+- `mcp_manage_transcript_session`: manages slash-command style transcript controls such as auto on/off/status and full-session write.
 - `mcp_sync_memory`: runs the sync pipeline. This tool has side effects.
 
 ## Routing Rules
@@ -83,11 +84,35 @@ Examples:
 
 ## `mcp_write_transcript` Notes
 
-- Use `mode="create"` to start a new session transcript.
-- Use `mode="append"` to continue an existing transcript.
+- Use `mode="create"` exactly once on the first user turn of a new chat session.
+- Use `mode="append"` for all later turns in that same chat session.
 - Preferred `session_key` pattern: `agent:main:{provider}:direct:{user_identifier_from_provider}`.
-- `stable_session_id` is optional; generate one if cross-system reference is needed.
-- `source` should identify the channel, such as `whatsapp`, `telegram`, `webchat`, or `unknown`.
+- `stable_session_id` is required and should come from the host/agent session state. Do not let the tool generate or guess it.
+- Each write stores one raw transcript turn in archive-style format:
+  `user: ...`
+  `assistant: ...`
+- `create` requires `stable_session_id`, `user_message`, `assistant_message`, `session_key`, and `source`.
+- `append` requires `stable_session_id`, `user_message`, and `assistant_message`.
+- `append` resolves the target file strictly by the same `stable_session_id` through the active session registry.
+- Do not append by "latest transcript today" and do not treat `session_key` as a unique chat-session identifier.
+- `source` should identify the channel, such as `whatsapp`, `telegram`, `webchat`, or `trae`.
+- Policy guardrail: do not call `mcp_write_transcript` unless the user explicitly requested a `nouva-memory` transcript command or the current session already has `auto_write_enabled=true`.
+
+## `mcp_manage_transcript_session` Notes
+
+- Default transcript auto-write mode is off.
+- User-facing transcript commands should use the `nouva:` prefix family:
+  `/nouva-memory-auto-on`, `/nouva-memory-auto-off`, `/nouva-memory-status`, `/nouva-memory-write-transcript`.
+- If the agent sees one of those commands in the user message, it should route to `mcp_manage_transcript_session` instead of treating it as a normal chat request.
+- `/nouva-memory-auto-on` enables auto-write for the current `stable_session_id`.
+- `/nouva-memory-auto-off` disables auto-write for the current `stable_session_id`.
+- `/nouva-memory-status` returns whether auto-write is currently enabled for the current `stable_session_id`.
+- `/nouva-memory-write-transcript` writes or rewrites the full transcript for the current session using `turns_json`, which must contain the complete in-memory session turn list.
+- `turns_json` must decode into a JSON array of objects shaped like:
+  `{"user_message":"...","assistant_message":"..."}`
+- Agent behavior policy:
+  - If auto-write is off, do not call `mcp_write_transcript` unless the user explicitly uses `/nouva-memory-*`.
+  - If auto-write is on, `mcp_write_transcript` may be called after each completed turn for the same `stable_session_id`.
 
 ## Do / Don't
 
