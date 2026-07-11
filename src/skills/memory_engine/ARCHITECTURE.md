@@ -26,7 +26,7 @@ Daily summaries are the "junction format": they power both analytics and the mem
 
 #### A. Semantic Recall (Postgres + pgvector)
 
-- Table: `nouva_memories`
+- Table: `memory_vectors`
 - Content: embeddings for core knowledge docs (and the index map docs that help bridge query → date)
 - Query method: cosine distance search via raw SQL
 
@@ -156,7 +156,7 @@ flowchart TD
   U["User query"] --> QM["query_memory.py"]
 
   subgraph RAG["Two-Tier Hybrid RAG Pipeline"]
-    QM --> V["Tier A: pgvector search (nouva_memories)\nreturns chunks from core docs"]
+    QM --> V["Tier A: pgvector search (memory_vectors)\nreturns chunks from core docs"]
     V --> D{"Is chunk an index map\n(MEMORY_INDEX.md)?"}
     D -->|yes| EX["Extract YYYY-MM-DD dates (regex)"]
     D -->|no| RC["Keep as direct semantic chunks\n(MEMORY.md etc.)"]

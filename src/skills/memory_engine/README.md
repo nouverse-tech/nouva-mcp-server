@@ -98,7 +98,7 @@ If you are setting up the database for the first time:
 ```bash
 python3 src/skills/memory_engine/scripts/db/init_db.py
 ```
-This script will enable the `vector` extension and create the `nouva_memories` table with an HNSW index.
+This script will enable the `vector` extension and create the `memory_vectors` table with an HNSW index.
 
 ---
 

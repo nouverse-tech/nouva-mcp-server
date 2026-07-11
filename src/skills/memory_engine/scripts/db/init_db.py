@@ -13,7 +13,7 @@ def init_db():
     cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
 
     cur.execute("""
-        CREATE TABLE IF NOT EXISTS nouva_memories (
+        CREATE TABLE IF NOT EXISTS memory_vectors (
             id SERIAL PRIMARY KEY,
             document_path TEXT NOT NULL,
             chunk_index INTEGER NOT NULL,
@@ -25,8 +25,8 @@ def init_db():
     """)
 
     cur.execute("""
-        CREATE INDEX IF NOT EXISTS nouva_memories_embedding_idx
-        ON nouva_memories USING hnsw (embedding vector_cosine_ops);
+        CREATE INDEX IF NOT EXISTS memory_vectors_embedding_idx
+        ON memory_vectors USING hnsw (embedding vector_cosine_ops);
     """)
 
     db_helper.ensure_daily_summaries_table(conn)

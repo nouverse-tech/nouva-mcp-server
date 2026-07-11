@@ -108,10 +108,10 @@ def sync_file_to_vector_db(document_path, file_content, metadata):
     conn = get_db_connection()
     cur = conn.cursor()
     try:
-        cur.execute("DELETE FROM nouva_memories WHERE document_path = %s;", (document_path,))
+        cur.execute("DELETE FROM memory_vectors WHERE document_path = %s;", (document_path,))
         for idx, (chunk, emb) in enumerate(zip(chunks, embeddings)):
             cur.execute(
-                "INSERT INTO nouva_memories (document_path, chunk_index, content, embedding, metadata) VALUES (%s, %s, %s, %s, %s);",
+                "INSERT INTO memory_vectors (document_path, chunk_index, content, embedding, metadata) VALUES (%s, %s, %s, %s, %s);",
                 (document_path, idx, chunk, emb, json.dumps(metadata))
             )
         conn.commit()
@@ -130,7 +130,7 @@ def delete_file_from_vector_db(document_path):
     conn = get_db_connection()
     cur = conn.cursor()
     try:
-        cur.execute("DELETE FROM nouva_memories WHERE document_path = %s;", (document_path,))
+        cur.execute("DELETE FROM memory_vectors WHERE document_path = %s;", (document_path,))
         conn.commit()
         print(f"🗑️ Deleted {document_path} from pgvector database.")
         return True
@@ -155,7 +155,7 @@ def vector_search(query_text, limit=None):
         cur.execute(
             """
             SELECT document_path, content, embedding <=> %s::vector AS distance, metadata
-            FROM nouva_memories
+            FROM memory_vectors
             ORDER BY distance ASC
             LIMIT %s;
             """,
