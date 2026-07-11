@@ -14,7 +14,7 @@ metadata = {
 
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../scripts")))
-from util.persona_loader import get_default_persona_name, get_personas_dir, list_persona_statuses
+from persona_util.persona_loader import get_default_persona_name, get_personas_dir, list_persona_statuses
 
 
 async def handler() -> str:
