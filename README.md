@@ -18,10 +18,13 @@ The server supports dual transport:
 ┌─────────────────────────────────┐
 │           Nouva MCP Server      │
 │  ┌───────────────────────────┐  │
-│  │        Skills Engine       │  │ (native skills under src/skills/)
-│  └───────────────────────────┘  │
-│  ┌───────────────────────────┐  │
-│  │ Memory Engine (2-Lane)     │  │ (pgvector recall + SQL analytics + archived memory dir)
+│  │        Skills Engine       │  │ (dynamic loader under src/skills/)
+│  │  ┌─────────────────────┐  │  │
+│  │  │ Memory Engine       │  │  │ (pgvector recall + SQL analytics)
+│  │  └─────────────────────┘  │  │
+│  │  ┌─────────────────────┐  │  │
+│  │  │ Other Skills        │  │  │ (mcp_management, etc.)
+│  │  └─────────────────────┘  │  │
 │  └───────────────────────────┘  │
 └─────────────────────────────────┘
 ```
