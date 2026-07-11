@@ -9,11 +9,13 @@ Use this skill for Nouva's 2-lane memory system:
 
 - **Semantic recall** via `pgvector` for finding relevant concepts or dates.
 - **Deterministic analytics** via SQL over daily summaries for counts, trends, and date lists.
-- **Operational tools** for transcript writing and sync orchestration.
+- **Operational tools** for transcript writing, raw file access, and sync orchestration.
 
 ## Tools
 - `mcp_query_memory`: semantic recall (pgvector + fallback). Use for recall/context only, not for counts, ranking, aggregation, or trend analysis.
 - `mcp_query_analytics`: deterministic analytics executor over daily YAML summaries. Structured input only; the agent must parse natural language before calling it.
+- `mcp_grep_memory`: search for a specific keyword or pattern inside all memory markdown files (active and/or archived).
+- `mcp_read_memory_file`: read the raw content of a specific memory markdown file using its relative path.
 - `mcp_write_transcript`: writes a session transcript into the memory workspace.
 - `mcp_sync_memory`: runs the sync pipeline. This tool has side effects.
 
@@ -36,6 +38,8 @@ Use these rules to keep analytics answers deterministic:
   - "find the conversation that discussed ..."
 - Do not use `mcp_query_memory` to answer counts, top values, averages, trends, distributions, or grouped/date-based analytics.
 - For mixed questions, run `mcp_query_analytics` first to identify candidate dates or periods, then run `mcp_query_memory` only if the user also wants detailed context.
+- Use `mcp_grep_memory` when searching for exact strings, IDs, errors, or codes that might not yield good semantic matches in vector search.
+- Use `mcp_read_memory_file` to read the full content of a specific session transcript or daily summary once you have the relative path.
 - Use `mcp_write_transcript` only when conversation history should be written into active memory. Do not log transcripts by default.
 - Use `mcp_sync_memory` only for explicit sync, rebuild, ingestion, or maintenance operations. Do not run it as part of normal recall.
 

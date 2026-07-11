@@ -1,5 +1,4 @@
 import os
-import json
 
 metadata = {
     "name": "mcp_grep_memory",

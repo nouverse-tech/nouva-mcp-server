@@ -1,5 +1,4 @@
 import os
-import json
 
 metadata = {
     "name": "mcp_read_memory_file",
