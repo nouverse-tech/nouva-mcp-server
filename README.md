@@ -23,6 +23,9 @@ The server supports dual transport:
 │  │  │               Memory Engine                │  │  │ (pgvector recall + SQL analytics)
 │  │  └────────────────────────────────────────────┘  │  │
 │  │  ┌────────────────────────────────────────────┐  │  │
+│  │  │              Persona Engine                │  │  │ (startup persona bootstrap from markdown folders)
+│  │  └────────────────────────────────────────────┘  │  │
+│  │  ┌────────────────────────────────────────────┐  │  │
 │  │  │              MCP Management                │  │  │ (scaffolding & creating new skills)
 │  │  └────────────────────────────────────────────┘  │  │
 │  │  ┌────────────────────────────────────────────┐  │  │
@@ -65,11 +68,21 @@ nouva-mcp-server/
 │   │   │       ├── query_memory.py # Tool: query_memory
 │   │   │       ├── query_analytics.py # Tool: structured analytics executor
 │   │   │       └── sync_memory.py  # Tool: sync_memory
+│   │   ├── persona_engine/
+│   │   │   ├── README.md      # Persona setup and startup prompt integration
+│   │   │   ├── SKILL.md       # Agent guidance for persona loading
+│   │   │   ├── scripts/
+│   │   │   │   └── util/
+│   │   │   │       └── persona_loader.py # Persona validation and prompt assembly
+│   │   │   └── tools/
+│   │   │       ├── list_personas.py # Tool: mcp_list_personas
+│   │   │       └── get_persona_prompt.py # Tool: mcp_get_persona_prompt
 │   │   ├── mcp_management/
 │   │   │   ├── SKILL.md       # Scaffolding guidelines (Resource)
 │   │   │   └── tools/
 │   │   │       └── create_skill.py # Tool: mcp_create_skill
 │   └── utils/
+├── personas/                  # Private persona folders + public example template
 ├── requirements.txt           # Python dependencies
 └── ROADMAP_PLAN.md            # Long-term development plan
 ```
@@ -112,6 +125,14 @@ cp src/skills/memory_engine/memory_config.example.json src/skills/memory_engine/
 ```bash
 python3 src/main.py --transport stdio
 ```
+
+To enable one persona automatically for every new chat session:
+
+```bash
+python3 src/main.py --transport stdio --default-persona=nouva-example
+```
+
+If `--default-persona` is omitted, persona mode remains off and no startup persona prompt is injected by default.
 
 ---
 
@@ -255,11 +276,15 @@ Then connect using:
 Connecting to the MCP server is enough for tool discovery. For best results, add a short routing rule in your agent instructions:
 - Use `mcp_query_analytics` for aggregation/time-series questions, but call it with structured arguments only after the agent parses the user's natural-language request. The analytics contract supports date lists, top values, weekday distributions, distinct-date counts, counts by period, grouped top values, and average importance.
 - Use `mcp_query_memory` for detailed recall and context.
+- Use `mcp_get_persona_prompt` only at new-session bootstrap time when a persona is explicitly selected or a default persona is configured.
 
 ---
 
 ## Memory Engine Integration
 For detailed setup instructions regarding the 2-lane memory architecture, pgvector recall, SQL analytics, embedding settings, database initialization, and memory sync operations, please refer to the [Memory Engine README](src/skills/memory_engine/README.md).
+
+## Persona Engine Integration
+For startup persona packs, markdown folder structure, required files (`IDENTITY.md`, `SOUL.md`, `USER.md`), fail-fast validation, and `--default-persona` setup, please refer to the [Persona Engine README](src/skills/persona_engine/README.md).
 
 ### Visual Graph with Obsidian
 Since all daily logs and summaries are stored in a clean Markdown format (`YYYY-MM-DD.md` and `_summaries/YYYY-MM-DD.summary.md`), you can easily open the active/archived memory directories in [Obsidian](https://obsidian.md) to explore your memories visually as an interconnected knowledge graph.

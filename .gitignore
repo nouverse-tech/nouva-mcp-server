@@ -18,3 +18,9 @@ memories/archived/*
 !memories/active/examples/**
 !memories/archived/examples/
 !memories/archived/examples/**
+
+# Persona Engine Related
+personas/*
+!personas/README.md
+!personas/nouva-example/
+!personas/nouva-example/**

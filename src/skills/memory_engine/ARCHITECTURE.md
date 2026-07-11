@@ -31,8 +31,8 @@ Daily summaries are the "junction format": they power both analytics and the mem
 - Query method: cosine distance search via raw SQL
 
 Code references:
-- Vector table schema: [init_db.py](file:///Users/gadingnst/Workspace/nouverse/nouva-mcp-server/src/skills/memory_engine/scripts/db/init_db.py)
-- Vector search implementation: [db_helper.py](file:///Users/gadingnst/Workspace/nouverse/nouva-mcp-server/src/skills/memory_engine/scripts/db/db_helper.py)
+- Vector table schema: [init_db.py](scripts/db/init_db.py)
+- Vector search implementation: [db_helper.py](scripts/db/db_helper.py)
 
 #### B. Deterministic Analytics (Postgres SQL)
 
@@ -41,8 +41,8 @@ Code references:
 - Query method: pure SQL aggregations, with GIN indexes over arrays
 
 Code references:
-- Analytics schema + queries: [analytics_repo.py](file:///Users/gadingnst/Workspace/nouverse/nouva-mcp-server/src/skills/memory_engine/scripts/db/analytics_repo.py)
-- Sync `.summary.md` → `daily_summaries`: [analytics_sync.py](file:///Users/gadingnst/Workspace/nouverse/nouva-mcp-server/src/skills/memory_engine/scripts/sync/analytics_sync.py)
+- Analytics schema + queries: [analytics_repo.py](scripts/db/analytics_repo.py)
+- Sync `.summary.md` → `daily_summaries`: [analytics_sync.py](scripts/sync/analytics_sync.py)
 
 ---
 
@@ -108,7 +108,7 @@ The sync process is orchestrated by `auto_sync.py` and is designed to be increme
 - The pgvector lane receives core docs such as `MEMORY_INDEX.md`, `MEMORY.md`, `USER.md`, and related files, not raw `.summary.md` files directly.
 
 Code reference:
-- Orchestrator: [auto_sync.py](file:///Users/gadingnst/Workspace/nouverse/nouva-mcp-server/src/skills/memory_engine/scripts/auto_sync.py)
+- Orchestrator: [auto_sync.py](scripts/auto_sync.py)
 
 ### 3.1 Diagram: Sync Steps (High Level)
 
@@ -128,7 +128,7 @@ flowchart TD
 
 ### 3.2 Note on LLM Usage
 
-Summary generation uses a configurable LLM endpoint/model from `memory_config.json` via [summary_sync.py](file:///Users/gadingnst/Workspace/nouverse/nouva-mcp-server/src/skills/memory_engine/scripts/sync/summary_sync.py). `llm.timeout_seconds` is configurable, while `temperature` currently falls back to the script default when omitted from config. If summaries already exist (pre-generated), the rest of the pipeline still works without calling an LLM.
+Summary generation uses a configurable LLM endpoint/model from `memory_config.json` via [summary_sync.py](scripts/sync/summary_sync.py). `llm.timeout_seconds` is configurable, while `temperature` currently falls back to the script default when omitted from config. If summaries already exist (pre-generated), the rest of the pipeline still works without calling an LLM.
 
 ### 3.3 Transcript Write Mechanism
 
@@ -167,9 +167,9 @@ The policy model is intentionally conservative:
 
 Code references:
 
-- Shared transcript storage logic: [transcript_store.py](file:///Users/gadingnst/Workspace/nouverse/nouva-mcp-server/src/skills/memory_engine/scripts/util/transcript_store.py)
-- Per-turn writer tool: [write_transcript.py](file:///Users/gadingnst/Workspace/nouverse/nouva-mcp-server/src/skills/memory_engine/tools/write_transcript.py)
-- Session command / full-session rewrite tool: [manage_transcript_session.py](file:///Users/gadingnst/Workspace/nouverse/nouva-mcp-server/src/skills/memory_engine/tools/manage_transcript_session.py)
+- Shared transcript storage logic: [transcript_store.py](scripts/util/transcript_store.py)
+- Per-turn writer tool: [write_transcript.py](tools/write_transcript.py)
+- Session command / full-session rewrite tool: [manage_transcript_session.py](tools/manage_transcript_session.py)
 
 ### 3.4 Diagram: Active Transcript Write Path
 
@@ -208,8 +208,8 @@ The RAG retrieval path is intentionally hybrid:
 - Some pgvector hits can also be returned directly as semantic chunks when they come from non-index core docs such as `MEMORY.md`; date extraction is not the only output path.
 
 Entry point:
-- Tool wrapper: [query_memory.py](file:///Users/gadingnst/Workspace/nouverse/nouva-mcp-server/src/skills/memory_engine/tools/query_memory.py)
-- Script: [query_memory.py](file:///Users/gadingnst/Workspace/nouverse/nouva-mcp-server/src/skills/memory_engine/scripts/query_memory.py)
+- Tool wrapper: [query_memory.py](tools/query_memory.py)
+- Script: [query_memory.py](scripts/query_memory.py)
 
 ### 4.1 Diagram: RAG Retrieval Tiers
 
@@ -252,8 +252,8 @@ Analytics queries should not be answered by semantic search. They are routed to 
 - The analytics contract now supports both base intents (`dates_for_value`, `top_values`, `mood_timeseries`, `mood_distribution_by_weekday`) and quick-win aggregate intents (`count_distinct_dates_for_value`, `count_by_period`, `grouped_top_values`, `average_importance`).
 
 Code reference:
-- Tool wrapper: [query_analytics.py](file:///Users/gadingnst/Workspace/nouverse/nouva-mcp-server/src/skills/memory_engine/tools/query_analytics.py)
-- Script: [query_analytics.py](file:///Users/gadingnst/Workspace/nouverse/nouva-mcp-server/src/skills/memory_engine/scripts/query_analytics.py)
+- Tool wrapper: [query_analytics.py](tools/query_analytics.py)
+- Script: [query_analytics.py](scripts/query_analytics.py)
 
 ```mermaid
 flowchart TD

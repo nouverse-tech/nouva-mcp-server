@@ -2,6 +2,8 @@
 
 This folder contains committed example files that mirror the runtime layout of the active memory workspace.
 
+For memory architecture, setup, sync flow, recall behavior, and analytics behavior, see the [Memory Engine README](../../../src/skills/memory_engine/README.md).
+
 Included example date:
 - `2026-06-20.md` for the parent daily note
 - `2026-06-20-0001.md` for a raw session transcript using repeated `user:` / `assistant:` turn blocks

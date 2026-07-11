@@ -14,6 +14,8 @@ logger = logging.getLogger("nouva-mcp-server")
 # Initialize FastMCP Server
 mcp = FastMCP("nouva-mcp-server")
 
+REQUIRED_PERSONA_FILES = ("IDENTITY.md", "SOUL.md", "USER.md")
+
 # --- STATIC TOOLS ---
 
 @mcp.tool()
@@ -133,6 +135,69 @@ def load_skills():
                 except Exception as e:
                     logger.error(f"Failed to load tool {tool_file.name} from skill {skill_name}: {e}")
 
+
+def validate_persona_folder(persona_dir: Path):
+    """Validate that a persona folder contains all required markdown files."""
+    missing_files = [
+        required_file
+        for required_file in REQUIRED_PERSONA_FILES
+        if not (persona_dir / required_file).is_file()
+    ]
+    if missing_files:
+        raise ValueError(
+            f"Persona '{persona_dir.name}' is invalid. Missing required files: {', '.join(missing_files)}"
+        )
+
+
+def load_persona_resources(default_persona: str | None = None):
+    """Register valid persona markdown files as MCP resources and validate the default persona."""
+    project_root = Path(__file__).resolve().parent.parent
+    personas_dir = project_root / "personas"
+    os.environ["NOUVA_PERSONAS_DIR"] = str(personas_dir)
+
+    if not personas_dir.exists():
+        if default_persona:
+            raise ValueError(
+                f"--default-persona was set to '{default_persona}' but personas directory does not exist: {personas_dir}"
+            )
+        logger.info("Personas directory not found; persona mode remains disabled.")
+        return
+
+    valid_persona_names = set()
+    for persona_dir in sorted(personas_dir.iterdir()):
+        if not persona_dir.is_dir():
+            continue
+
+        try:
+            validate_persona_folder(persona_dir)
+            valid_persona_names.add(persona_dir.name)
+        except ValueError as error:
+            logger.warning(f"Skipping invalid persona folder {persona_dir}: {error}")
+            continue
+
+        for required_file in REQUIRED_PERSONA_FILES:
+            resource_name = required_file.replace(".md", "").lower()
+            resource = FileResource(
+                uri=f"metadata://personas/{persona_dir.name}/{resource_name}",
+                name=f"{persona_dir.name}-{resource_name}",
+                description=f"{resource_name.title()} markdown for persona {persona_dir.name}",
+                path=(persona_dir / required_file).absolute(),
+                mime_type="text/markdown"
+            )
+            mcp.add_resource(resource)
+            logger.info(f"Loaded persona resource: {persona_dir.name}/{required_file}")
+
+    if default_persona:
+        if default_persona not in valid_persona_names:
+            raise ValueError(
+                f"Default persona '{default_persona}' is invalid or missing in {personas_dir}."
+            )
+        os.environ["NOUVA_DEFAULT_PERSONA"] = default_persona
+        logger.info(f"Default persona enabled: {default_persona}")
+    else:
+        os.environ.pop("NOUVA_DEFAULT_PERSONA", None)
+        logger.info("Default persona is disabled.")
+
 # Load dynamic skills before startup
 load_skills()
 
@@ -140,7 +205,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Nouva MCP Server")
     parser.add_argument("--transport", choices=["stdio", "sse"], default="stdio", help="Transport mode")
     parser.add_argument("--port", type=int, default=8000, help="Port for SSE transport")
+    parser.add_argument(
+        "--default-persona",
+        type=str,
+        default=None,
+        help="Default persona folder name to load for new chats (e.g. --default-persona=nouva)"
+    )
     args = parser.parse_args()
+    load_persona_resources(args.default_persona)
 
     if args.transport == "sse":
         logger.info(f"Starting FastMCP server in SSE mode on host 0.0.0.0, port {args.port}...")
