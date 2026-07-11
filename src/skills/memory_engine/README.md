@@ -12,6 +12,7 @@ This skill provides Nouva's current 2-lane memory architecture:
 - **Obsidian Graph Expansion**: Traverses `related_dates` using a configurable graph depth and score decay.
 - **Deterministic Analytics**: Loads `.summary.md` metadata into the `daily_summaries` SQL table for aggregation queries.
 - **Auto-Sync / Ingestion**: Reconciles summaries, updates `MEMORY_INDEX.md`, syncs core docs to pgvector, syncs daily summaries to SQL, and archives logs to NAS.
+- **Memory Indexing (`MEMORY_INDEX.md`)**: Serves as the main historical memory map. This file is synced to `pgvector` and acts as a crucial key/map for retrieval, helping the system map semantic queries to specific dates before pulling detailed transcripts from the NAS archive. An example structure of this file can be found in `memories/active/examples/MEMORY_INDEX.md`.
 
 ---
 
