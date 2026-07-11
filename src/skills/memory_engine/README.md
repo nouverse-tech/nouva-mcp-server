@@ -19,7 +19,7 @@ This skill provides Nouva's current 2-lane memory architecture:
 
 The skill configuration is defined in `memory_config.json`. 
 
-For a deeper explanation of the 2-lane design, retrieval flow, analytics flow, and `MEMORY_INDEX.md` scaling direction, see `ARCHITECTURE.md`.
+For a deeper explanation of the 2-lane design, retrieval flow, analytics flow, and `MEMORY_INDEX.md` scaling direction, see [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 ### 1. Setup Config File
 Copy the example config:
