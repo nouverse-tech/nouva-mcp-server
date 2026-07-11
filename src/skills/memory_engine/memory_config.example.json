@@ -1,0 +1,90 @@
+{
+  "controlled_vocabulary": {
+    "projects": [
+      "Nouverse",
+      "gading.dev",
+      "Homelab"
+    ],
+    "technologies": [
+      "Kubernetes",
+      "Docker",
+      "Nginx",
+      "Terraform",
+      "Proxmox",
+      "Cloudflare",
+      "Traefik",
+      "Redis",
+      "PostgreSQL",
+      "LangChain",
+      "React",
+      "Next.js",
+      "Ethers.js",
+      "Wagmi",
+      "NestJS",
+      "Flask",
+      "Tanstack"
+    ]
+  },
+  "mood_taxonomy": {
+    "allowed": [
+      "productive",
+      "focused",
+      "playful",
+      "calm",
+      "stressed",
+      "tired",
+      "sad",
+      "mixed"
+    ],
+    "default": "mixed"
+  },
+  "decay_constant": 0.005,
+  "link_mappings": {
+    "people": {
+      "ding": "Gading",
+      "gading": "Gading",
+      "kak rina": "Kak Rina",
+      "nadine": "Nadine",
+      "nouva": "Nouva",
+      "rina": "Kak Rina",
+      "va": "Nouva"
+    },
+    "projects": {
+      "gading-dev": "gading.dev",
+      "gading.dev": "gading.dev",
+      "homelab": "Homelab",
+      "nouverse": "Nouverse",
+      "nouverse core": "Nouverse",
+      "nouverse-core": "Nouverse"
+    }
+  },
+  "max_graph_depth": 2,
+  "max_related_dates": 2,
+  "memory_paths": {
+    "active_memory_dir": "<path_to_your_active_memory_directory>",
+    "archived_memory_dir": "<path_to_your_archived_memory_directory>"
+  },
+  "database": {
+    "host": "localhost",
+    "port": 5432,
+    "name": "agent_db",
+    "user": "postgres",
+    "password": "<your_db_password>",
+    "url": ""
+  },
+  "embedding": {
+    "url": "http://localhost:11434",
+    "model": "bge-m3:latest"
+  },
+  "llm": {
+    "url": "http://localhost:3000/v1/chat/completions",
+    "model": "gemini-3.5-flash-low"
+  },
+  "multi_level_index_threshold_entries": 1000,
+  "multi_level_index_threshold_kb": 500,
+  "retrieval_weights": {
+    "importance": 0.3,
+    "recency": 0.2,
+    "semantic": 0.5
+  }
+}
