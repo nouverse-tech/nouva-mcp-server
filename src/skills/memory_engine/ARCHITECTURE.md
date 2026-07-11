@@ -48,12 +48,13 @@ Code references:
 
 ## 2. End-to-End Architecture Overview
 
-This diagram provides a high-level overview of the entire memory engine, showing how user queries, the three-tier retrieval pipeline, the databases, and the background sync process interact.
+This diagram provides a high-level overview of the entire memory engine, showing how user queries (both semantic recall and deterministic analytics), the retrieval pipeline, the databases, and the background sync process interact.
 
 ```mermaid
 flowchart TD
  subgraph UserTurn [User Interaction]
  Q[User Query] --> QM[query_memory.py]
+ QA_NL[User Analytics Query] --> AGENT[Agent Parser: NL -> Structured]
  end
 
  subgraph Tier1 [Tier 1: Semantic Index Map]
@@ -72,10 +73,17 @@ flowchart TD
  LLM --> |7. Optional: Read Raw Logs if Details Needed| NAS_RAW[NAS: daily_sessions/YYYY-MM-DD/]
  end
 
+ subgraph AnalyticsLane [Analytics Lane]
+ AGENT --> |Structured Args| QA[query_analytics.py]
+ QA --> |Query SQL| SQL[(Postgres SQL: daily_summaries)]
+ SQL --> |Deterministic Results| AGENT
+ end
+
  subgraph SyncProcess [Sync Process - auto_sync.py]
  Cron[Cron / Manual Run] --> Sync[auto_sync.py]
  Sync --> |Generate| SumFiles[memory/summaries/YYYY-MM-DD.summary.md]
  SumFiles --> |Sync to RAG| RAG
+ SumFiles --> |Sync to SQL| SQL
  SumFiles --> |Archive to NAS| NAS_SUM
  Sync --> |Archive Raw Logs to Subfolders| NAS_RAW
  end
@@ -85,7 +93,7 @@ flowchart TD
 
 ## 3. Sync Pipeline (auto_sync.py)
 
-*(This section details the **Sync Process** subgraph shown in the End-to-End Architecture Overview)*
+*(This section details the **Sync Process** and database ingestion paths shown in the End-to-End Architecture Overview)*
 
 The sync process is orchestrated by `auto_sync.py` and is designed to be incremental and idempotent:
 
@@ -160,6 +168,8 @@ flowchart TD
 ---
 
 ## 5. Analytics Flow (query_analytics.py)
+
+*(This section details the **Analytics Lane** shown in the End-to-End Architecture Overview)*
 
 Analytics queries should not be answered by semantic search. They are routed to SQL over `daily_summaries` and return deterministic results (counts, distributions, top values, date lists).
 
