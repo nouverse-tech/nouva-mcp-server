@@ -4,7 +4,7 @@ import subprocess
 
 metadata = {
     "name": "mcp_query_memory",
-    "description": "Query Nouva long-term memory for recall (what happened / where was it mentioned). Uses pgvector semantic search to find relevant dates + reads daily summaries (local/NAS) and returns the best matching day summaries with archive path pointers. Use mcp_query_analytics for trends/counts."
+    "description": "Query Nouva long-term memory for recall (what happened / where was it mentioned). Uses pgvector semantic search to find relevant dates + reads daily summaries (local/NAS) and returns the best matching day summaries with archive path pointers. Use for detail/context recall only. Do not use for counts, trends, top values, grouped analytics, weekday distributions, or time-series aggregation; use mcp_query_analytics instead."
 }
 
 async def handler(query: str) -> str:
