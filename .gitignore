@@ -1,2 +1,20 @@
+.DS_Store
 node_modules/
 dist/
+.venv/
+__pycache__/
+*.pyc
+docker-compose.local.yml
+
+# Memory Enging Related
+src/skills/memory_engine/memory_config.json
+memories/*
+!memories/.gitkeep
+!memories/active/
+!memories/archived/
+memories/active/*
+memories/archived/*
+!memories/active/examples/
+!memories/active/examples/**
+!memories/archived/examples/
+!memories/archived/examples/**

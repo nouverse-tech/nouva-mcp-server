@@ -1,84 +1,43 @@
 # ROADMAP_PLAN.md - Nouva MCP Server
 
-Rencana pengembangan **Nouva MCP (Model Context Protocol) Server** sebagai repositori terpusat untuk *Personalized Skills* dan *Memory* yang bersifat modular, portable, dan *detachable* dari framework AI agent manapun (OpenClaw, Hermes, Claude Code, Cursor, dll.).
+Development roadmap for **Nouva MCP (Model Context Protocol) Server** as a centralized repository for modular, portable, and detachable *Personalized Skills* and *Memory*, usable from any agent/IDE client (OpenClaw, Hermes, Claude Code, Cursor, Zed, etc.).
 
 ---
 
-## Arsitektur Umum
+## Architecture Overview
 
-```
-[AI Agent / IDE Client]
-  (Claude Code, Cursor, OpenClaw)
-        │
-        ▼ (via stdio / SSE)
-┌─────────────────────────────────┐
-│        Nouva MCP Server         │
-│  ┌───────────────────────────┐  │
-│  │       Skills Engine       │  │ (Porting dari local workspace skills)
-│  └───────────────────────────┘  │
-│  ┌───────────────────────────┐  │
-│  │   Memory Engine (RAG)     │  │ (SQLite / Vector DB lokal)
-│  └───────────────────────────┘  │
-└─────────────────────────────────┘
-```
+The up-to-date architecture diagram and client integration examples live in the root [README.md](README.md).
 
-### Aturan Emas Migrasi Skill ke MCP
-* **Python-Based & Dockerized**: Server MCP utama ditulis menggunakan Python (FastMCP / MCP Python SDK) dan dideploy menggunakan Docker di container host `ai-engine` (LXC 106).
-* **Self-Contained & Native**: Semua logic, parser, auth, dan eksekusi skill yang dimigrasi harus ditulis/dikonversi menjadi script **native** di dalam repositori MCP server.
-* **Gak Boleh Numpuk / Reference External**: Dilarang keras membuat tool MCP yang hanya bertindak sebagai wrapper untuk memanggil script Python/Bash/JS di luar repositori (misalnya memanggil file di folder root `/root/.openclaw/workspace/skills/...`). Seluruh dependencies, logic, dan helper file harus dideklarasikan di dalam folder skill masing-masing di bawah `src/skills/` agar server MCP bener-bener portable dan detachable.
-* **Secrets Management**: Semua secrets (seperti Google API tokens, credentials) disimpan di dalam folder `.secrets/` di root repositori MCP server dan **wajib dimasukkan ke `.gitignore`**. Jangan pernah melakukan hardcode credentials di dalam file skill, dan hindari membaca file credential dari path global sistem (seperti `/root/.openclaw/workspace/secrets/`) agar server MCP tetap portable.
-* **SSH Keys Exception**: Untuk SSH key default host (seperti `/root/.ssh/id_ed25519_nouva`), diperbolehkan untuk dibaca langsung dari default path-nya karena sifatnya adalah konfigurasi environment host, bukan application-level secret.
+### Golden rules for migrating skills into MCP
+- Python-based: the MCP server and its tools are implemented in Python (FastMCP / MCP Python SDK).
+- Self-contained and native: skill logic, parsers, auth, and helpers must live inside this repo under `src/skills/`.
+- No external wrappers: do not create MCP tools that merely call scripts outside this repository.
+- Secrets management: keep secrets out of git and out of the repo by default. Prefer environment variables or host-mounted secret files. Avoid reading secrets from global paths so the repo stays portable.
+- SSH keys exception: host-level SSH keys may be read from standard host paths when they are truly environment configuration.
 
 ---
 
-## Rencana Fase Pengembangan
+## Phased Development Plan
 
-### 🚀 Fase 1: Inisialisasi & Core Skills (TypeScript -> Python & Docker Migration)
-Migrasi fondasi server MCP dari TypeScript ke Python dan containerization dengan Docker.
-- [ ] **Setup Project & Dockerfile**: Inisialisasi project Python dengan `Dockerfile` dan `docker-compose.yml` di folder `projects/nouva-mcp-server/`.
-- [ ] **Dual Transport Support**:
-  - **Opsi 1 (Stdio)**: Konfigurasi docker/ssh agar OpenClaw bisa memanggil container lewat SSH stdin/stdout.
-  - **Opsi 2 (SSE)**: Menjalankan mode SSE HTTP server di port `8000` agar bisa diakses oleh client eksternal (Cursor/Hermes).
-- [ ] **Core Skill - System Status**: Porting tool `system_status` ke Python.
-- [ ] **Core Skill - Safe Shell Command**: Porting tool `run_safe_command` ke Python.
-- [ ] **Skill - Contributing Gading Dev**: Porting tool `gading_dev_review` dan `gading_dev_publish` ke Python.
-- [ ] **Integration Verification**: Menguji koneksi dengan OpenClaw (via SSH stdio) dan Cursor (via SSE HTTP).
+### Phase 1: Initialization & Core Skills (TypeScript -> Python migration)
+Migrate the MCP server foundation from TypeScript to Python and verify local integration.
+- [x] Project setup: requirements and folder structure.
+- [x] Core skill: `system_status` (Python).
+- [x] Core skill: `run_safe_command` (Python).
+- [x] Skill: MCP management scaffolding (`mcp_create_skill`).
+- [x] Skill: `memory_engine` (Python).
+- [x] Integration verification: connect MCP server to OpenClaw locally.
 
-### 🛠️ Fase 2: Migrasi Advanced Skills
-Memindahkan skill-skill operasional yang saat ini ada di workspace OpenClaw ke dalam modul MCP Server agar bisa dipakai di agent lain.
-- [ ] **TTS Local Mac (`mac_tts_speak`)**: Porting skill TTS menggunakan SSH ke MacBook Gading.
-- [ ] **Google Workspace Helper**: Integrasi auth OAuth2 untuk memanipulasi Google Docs/Slides via MCP.
-- [ ] **Server Management (Proxmox/LXC)**: Porting tool untuk mengontrol LXC container via command Proxmox.
-- [ ] **Morning Report Trigger**: Porting logic morning-report full python.
-
-### 🧠 Fase 3: Memory & RAG Integration
-Menambahkan ingatan jangka panjang personal (Personalized Memory) ke dalam MCP Server.
-- [ ] **SQLite-vec / Local Vector DB Setup**: Setup database vector ringan berbasis file.
-- [ ] **Auto-indexing Memory**: Script untuk memindai file markdown di folder `memory/` dan menyimpannya sebagai embeddings.
-- [ ] **Memory Retrieval Tool (`search_memory`)**: Tool bagi AI agent untuk mencari konteks masa lalu berdasarkan query semantik sebelum menjawab user.
+### Phase 2: Migrate advanced skills
+Move operational skills from the OpenClaw workspace into this MCP Server repository so everything is portable and native.
+- [ ] chart_maker: data visualization (matplotlib/python).
+- [ ] document_converter: convert Markdown to Word via Pandoc.
+- [ ] draw_diagram: render diagrams via Mermaid.js/Mermaid.ink.
+- [ ] formula_renderer: render LaTeX formulas to PNG with handwriting fonts.
+- [ ] github_pr: PR workflow SOP (branching, commits, review).
 
 ---
 
-## Panduan Integrasi Client
+## Client Integration
 
-### 1. OpenClaw (Via SSH Stdio Transport)
-Menggunakan `docker exec` melalui SSH ke LXC 106:
-```json
-{
-  "mcpServers": {
-    "nouva-mcp": {
-      "command": "ssh",
-      "args": [
-        "-o", "StrictHostKeyChecking=no",
-        "-i", "/root/.ssh/id_ed25519_nouva",
-        "root@10.18.1.5",
-        "pct exec 106 -- docker exec -i nouva-mcp-server python src/main.py --transport stdio"
-      ]
-    }
-  }
-}
-```
-
-### 2. Cursor / Windsurf / Hermes (Via SSE HTTP Transport)
-Hubungkan ke server HTTP yang terekspos dari Docker di LXC 106:
-- **URL**: `http://10.18.1.106:8000/sse`
+Client integration examples are documented in the root [README.md](README.md).

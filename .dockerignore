@@ -1,0 +1,7 @@
+.git
+.venv
+__pycache__
+*.pyc
+.secrets
+memories
+src/skills/memory_engine/memory_config.json
