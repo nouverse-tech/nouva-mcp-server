@@ -6,8 +6,6 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      # Mount optional secrets/config files
-      - ${NOUVA_SECRETS_DIR:-./.secrets}:/app/.secrets
       # Mount active and archived memory paths from the host
       - ${NOUVA_ACTIVE_MEMORY_DIR:-./memories/active}:/root/.openclaw/workspace/memory
       - ${NOUVA_ARCHIVED_MEMORY_DIR:-./memories/archived}:/mnt/nas_nouverse
