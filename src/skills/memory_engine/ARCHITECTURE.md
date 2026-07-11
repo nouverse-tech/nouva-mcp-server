@@ -130,6 +130,68 @@ flowchart TD
 
 Summary generation uses a configurable LLM endpoint/model from `memory_config.json` via [summary_sync.py](file:///Users/gadingnst/Workspace/nouverse/nouva-mcp-server/src/skills/memory_engine/scripts/sync/summary_sync.py). `llm.timeout_seconds` is configurable, while `temperature` currently falls back to the script default when omitted from config. If summaries already exist (pre-generated), the rest of the pipeline still works without calling an LLM.
 
+### 3.3 Transcript Write Mechanism
+
+Raw transcript writing is now handled as a separate operational path from the sync pipeline. This path is designed for **active-session logging** in the writable memory workspace before archival happens.
+
+There are two write modes:
+
+- **Per-turn write** via `mcp_write_transcript`: append one completed `user` / `assistant` exchange to the active transcript for a given `stable_session_id`.
+- **Full-session rewrite** via `mcp_manage_transcript_session` with `/nouva-memory-write-transcript`: rewrite the active transcript file from the complete in-memory turn list for the current session.
+
+Both modes share the same storage logic:
+
+- Active transcript files live directly under the active memory directory using the existing naming pattern `YYYY-MM-DD-XXXX.md`.
+- Each transcript file begins with a stable session header:
+  - `# Session: <original session timestamp>`
+  - `Parent Day: [[YYYY-MM-DD]]`
+  - `Session Key`
+  - `Session ID`
+  - `Source`
+- The body uses raw repeated turn blocks instead of summary prose:
+  - `user: ...`
+  - `assistant: ...`
+- The original session timestamp is preserved across full rewrites so a later sync does not overwrite the session start time.
+- `parent_day` is treated as immutable for an existing session to keep the header, registry, filename prefix, and later archive destination consistent.
+
+The write path maintains two lightweight registries in active memory:
+
+- `_session_registry.json`: maps `stable_session_id` to the active transcript filename and its session metadata.
+- `_transcript_logging_state.json`: stores whether `auto_write_enabled` is on or off for each active session.
+
+The policy model is intentionally conservative:
+
+- Default auto-write mode is **off**.
+- Transcript writes should only happen when the user explicitly triggers a `nouva-memory` command or when the current session has already enabled auto-write.
+- This keeps raw transcripts opt-in, avoids noisy memory growth, and prevents accidental long-term logging of ordinary chat turns.
+
+Code references:
+
+- Shared transcript storage logic: [transcript_store.py](file:///Users/gadingnst/Workspace/nouverse/nouva-mcp-server/src/skills/memory_engine/scripts/util/transcript_store.py)
+- Per-turn writer tool: [write_transcript.py](file:///Users/gadingnst/Workspace/nouverse/nouva-mcp-server/src/skills/memory_engine/tools/write_transcript.py)
+- Session command / full-session rewrite tool: [manage_transcript_session.py](file:///Users/gadingnst/Workspace/nouverse/nouva-mcp-server/src/skills/memory_engine/tools/manage_transcript_session.py)
+
+### 3.4 Diagram: Active Transcript Write Path
+
+```mermaid
+flowchart TD
+  U["User turn or /nouva-memory-*"] --> A["Agent / client routing"]
+  A -->|per-turn write| WT["mcp_write_transcript"]
+  A -->|session command| MT["mcp_manage_transcript_session"]
+  MT -->|auto on/off| LS["_transcript_logging_state.json"]
+  MT -->|full-session rewrite| TS["transcript_store.py"]
+  WT --> TS
+  TS --> SR["_session_registry.json"]
+  TS --> TF["active/YYYY-MM-DD-XXXX.md"]
+
+  style WT fill:#bbdefb,color:#0d47a1
+  style MT fill:#bbdefb,color:#0d47a1
+  style TS fill:#c8e6c9,color:#1a5e20
+  style SR fill:#fff3e0,color:#e65100
+  style LS fill:#fff3e0,color:#e65100
+  style TF fill:#f3e5f5,color:#7b1fa2
+```
+
 ---
 
 ## 4. Retrieval Flow (query_memory.py)
