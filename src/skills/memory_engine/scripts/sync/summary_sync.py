@@ -147,7 +147,18 @@ def get_previous_date_local_or_nas(date_str: str, active_memory_dir: str, nas) -
                         pass
 
         for f in nas.list_dir("daily_sessions"):
-            if len(f) == 13 and f.endswith(".md") and not f.startswith("."):
+            if f.startswith("."):
+                continue
+            # Handle new subfolder format (YYYY-MM-DD)
+            if len(f) == 10:
+                try:
+                    fd = datetime.datetime.strptime(f, "%Y-%m-%d").date()
+                    if fd < dt:
+                        daily_dates.add(fd)
+                except ValueError:
+                    pass
+            # Handle old flat format (YYYY-MM-DD.md)
+            elif len(f) == 13 and f.endswith(".md"):
                 try:
                     fd = datetime.datetime.strptime(f[:10], "%Y-%m-%d").date()
                     if fd < dt:
