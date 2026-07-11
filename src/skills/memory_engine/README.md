@@ -2,17 +2,17 @@
 
 This skill provides Nouva's current 2-lane memory architecture:
 
-- **Semantic recall** via **PostgreSQL + pgvector** for finding relevant concepts or dates.
+- **Semantic recall (RAG)** via **PostgreSQL + pgvector** for finding relevant concepts or dates.
 - **Deterministic analytics** via structured SQL over daily summaries for counts, trends, and date lists.
 - **Sync pipelines** that generate summaries, refresh the memory index, archive logs, and keep both storage lanes updated.
 
 ## Features
-- **Semantic Vector Search**: Uses a local embedding model (e.g. `bge-m3:latest`) to query pgvector memories.
-- **Hybrid Scoring**: Combines semantic similarity, importance, and recency using configurable weights from `memory_config.json`.
+- **Semantic Vector Search (RAG)**: Uses a local embedding model (e.g. `bge-m3:latest`) to query pgvector memories.
+- **Hybrid RAG Scoring**: Combines semantic similarity, importance, and recency using configurable weights from `memory_config.json`.
 - **Obsidian Graph Expansion**: Traverses `related_dates` using a configurable graph depth and score decay.
 - **Deterministic Analytics**: Loads `.summary.md` metadata into the `daily_summaries` SQL table for aggregation queries.
-- **Auto-Sync / Ingestion**: Reconciles summaries, updates `MEMORY_INDEX.md`, syncs core docs to pgvector, syncs daily summaries to SQL, and archives logs to NAS.
-- **Memory Indexing (`MEMORY_INDEX.md`)**: Serves as the main historical memory map. This file is synced to `pgvector` and acts as a crucial key/map for retrieval, helping the system map semantic queries to specific dates before pulling detailed transcripts from the NAS archive. An example structure of this file can be found in `memories/active/examples/MEMORY_INDEX.md`.
+- **Auto-Sync / Ingestion**: Reconciles summaries, updates `MEMORY_INDEX.md`, syncs core docs to pgvector (RAG database), syncs daily summaries to SQL, and archives logs to NAS.
+- **Memory Indexing (`MEMORY_INDEX.md`)**: Serves as the main historical memory map. This file is synced to `pgvector` and acts as a crucial key/map for the RAG retrieval pipeline, helping the system map semantic queries to specific dates before pulling detailed transcripts from the NAS archive. An example structure of this file can be found in `memories/active/examples/MEMORY_INDEX.md`.
 
 ---
 

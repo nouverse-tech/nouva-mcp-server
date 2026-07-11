@@ -1,8 +1,8 @@
 # ARCHITECTURE
 
-This document describes the current memory architecture implemented in the `memory_engine` skill. It focuses on how the system avoids classic RAG failure modes (vector dilution, noisy logs, time-based aggregation inaccuracies) by using two complementary lanes:
+This document describes the current memory architecture implemented in the `memory_engine` skill. It focuses on how the system avoids classic RAG failure modes (vector dilution, noisy logs, time-based aggregation inaccuracies) by using a hybrid 2-lane RAG design:
 
-- A semantic recall lane backed by Postgres + pgvector (good for “find the relevant day / concept”).
+- A semantic recall (RAG) lane backed by Postgres + pgvector (good for “find the relevant day / concept”).
 - A deterministic analytics lane backed by plain SQL over structured daily summaries (good for “counts / trends / top X / date lists”).
 
 This document reflects the current codebase only and focuses on the architecture that is implemented today.
@@ -65,9 +65,9 @@ flowchart LR
     ENT["entities/*.md"]
   end
 
-  subgraph PG["Postgres"]
-    VEC["pgvector: nouva_memories"]
-    ANA["SQL: daily_summaries"]
+  subgraph PG["Postgres (RAG & Analytics Backends)"]
+    VEC["pgvector: nouva_memories (Semantic RAG)"]
+    ANA["SQL: daily_summaries (Analytics)"]
   end
 
   DN --> SUM
@@ -124,9 +124,9 @@ Summary generation uses a configurable LLM endpoint/model from `memory_config.js
 
 ## 4. Retrieval Flow (query_memory.py)
 
-The retrieval path is intentionally hybrid:
+The RAG retrieval path is intentionally hybrid:
 
-- Semantic search is used primarily to find candidate dates (via the index map).
+- Semantic search (RAG) is used primarily to find candidate dates (via the index map).
 - Ranking weights and score decay are loaded from `memory_config.json` under `retrieval.*`.
 - Summaries are the primary answer surface (short, clean, low token usage).
 - Keyword scanning over summaries is always executed as a safety net.
@@ -136,21 +136,24 @@ Entry point:
 - Tool wrapper: [query_memory.py](file:///Users/gadingnst/Workspace/nouverse/nouva-mcp-server/src/skills/memory_engine/tools/query_memory.py)
 - Script: [query_memory.py](file:///Users/gadingnst/Workspace/nouverse/nouva-mcp-server/src/skills/memory_engine/scripts/query_memory.py)
 
-### 4.1 Diagram: Retrieval Tiers
+### 4.1 Diagram: RAG Retrieval Tiers
 
 ```mermaid
 flowchart TD
   U["User query"] --> QM["query_memory.py"]
 
-  QM --> V["Tier A: pgvector search (nouva_memories)\nreturns chunks from core docs"]
-  V --> D{"Is chunk an index map\n(MEMORY_INDEX.md)?"}
-  D -->|yes| EX["Extract YYYY-MM-DD dates (regex)"]
-  D -->|no| RC["Keep as direct semantic chunks\n(MEMORY.md etc.)"]
+  subgraph RAG["Two-Tier Hybrid RAG Pipeline"]
+    QM --> V["Tier A: pgvector search (nouva_memories)\nreturns chunks from core docs"]
+    V --> D{"Is chunk an index map\n(MEMORY_INDEX.md)?"}
+    D -->|yes| EX["Extract YYYY-MM-DD dates (regex)"]
+    D -->|no| RC["Keep as direct semantic chunks\n(MEMORY.md etc.)"]
 
-  EX --> HS["Hybrid score per date\nsemantic+importance+recency\n+ configurable related_dates traversal"]
-  HS --> SUM["Tier B: read summaries\n(local summaries/ OR NAS daily_sessions/summaries)"]
+    EX --> HS["Hybrid score per date\nsemantic+importance+recency\n+ configurable related_dates traversal"]
+    HS --> SUM["Tier B: read summaries\n(local summaries/ OR NAS daily_sessions/summaries)"]
 
-  QM --> KW["Tier C: keyword scan summaries (always)\nmerge + dedupe"]
+    QM --> KW["Tier C: keyword scan summaries (always)\nmerge + dedupe"]
+  end
+
   SUM --> OUT["Return top summaries + NAS path pointers\nand optional semantic chunks"]
   KW --> OUT
   RC --> OUT
@@ -186,7 +189,7 @@ flowchart TD
 
 ## 6. What This Architecture Solves
 
-- Vector dilution: embeddings focus on core docs and navigational index maps, not raw transcripts.
+- Vector dilution in RAG: embeddings focus on core docs and navigational index maps, not raw transcripts.
 - Time-based aggregation: handled by structured SQL over `daily_summaries`, not by semantic similarity.
 - Token efficiency: summaries are returned as the primary payload; raw logs remain available by path.
 
