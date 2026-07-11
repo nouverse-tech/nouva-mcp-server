@@ -312,7 +312,7 @@ def generate_memory_index(active_memory_dir: str, archived_memory_dir: str, nas)
             if ls.startswith("### "):
                 capture = True
                 continue
-            if ls.startswith(("🔗 Links", "**🔗 Links**")):
+            if ls.startswith("🔗") or ls.startswith("**🔗") or "🔗" in ls:
                 break
             if capture:
                 summary_lines.append(ls)
@@ -332,10 +332,20 @@ def generate_memory_index(active_memory_dir: str, archived_memory_dir: str, nas)
                 if not clean:
                     continue
                 m = re.match(r"^\*\*(.*?)\*\*:\s*(.*)", clean)
-                sentences.append(
-                    f"**{m.group(1).strip()}**: {m.group(2).split('.')[0].strip()}."
-                    if m else f"{clean.split('.')[0].strip()}."
-                )
+                if m:
+                    title = m.group(1).strip()
+                    rest = m.group(2).strip()
+                    rest_parts = re.split(r'\.(?:\s+|$)', rest)
+                    first_sentence = rest_parts[0].strip() if rest_parts else rest
+                    if first_sentence and not first_sentence.endswith('.'):
+                        first_sentence += '.'
+                    sentences.append(f"**{title}**: {first_sentence}")
+                else:
+                    parts = re.split(r'\.(?:\s+|$)', clean)
+                    first_sentence = parts[0].strip() if parts else clean
+                    if first_sentence and not first_sentence.endswith('.'):
+                        first_sentence += '.'
+                    sentences.append(first_sentence)
             parts.append(f"    {' '.join(sentences)}")
         return "\n".join(parts)
 
