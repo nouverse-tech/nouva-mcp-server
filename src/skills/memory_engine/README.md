@@ -12,7 +12,7 @@ This skill provides Nouva's current 2-lane memory architecture:
 - **Obsidian Graph Expansion**: Traverses `related_dates` using a configurable graph depth and score decay.
 - **Deterministic Analytics**: Loads `.summary.md` metadata into the `daily_summaries` SQL table for aggregation queries.
 - **Auto-Sync / Ingestion**: Reconciles summaries, updates `MEMORY_INDEX.md`, syncs core docs to pgvector (RAG database), syncs daily summaries to SQL, and archives logs to NAS.
-- **Memory Indexing (`MEMORY_INDEX.md`)**: Serves as the main historical memory map. This file is synced to `pgvector` and acts as a crucial key/map for the RAG retrieval pipeline, helping the system map semantic queries to specific dates before pulling detailed transcripts from the NAS archive. An example structure of this file can be found in `memories/active/examples/MEMORY_INDEX.md`.
+- **Memory Indexing (`MEMORY_INDEX.md`)**: Serves as the main historical memory map. This file is synced to `pgvector` and acts as a crucial key/map for the RAG retrieval pipeline, helping the system map semantic queries to specific dates before returning clean summaries and archive path pointers for optional transcript follow-up. An example structure of this file can be found in `memories/active/examples/MEMORY_INDEX.md`.
 
 ---
 
@@ -124,6 +124,7 @@ python3 src/skills/memory_engine/scripts/auto_sync.py
 
 - Do not send natural-language questions directly to the tool.
 - The agent/client must first parse the user's request into explicit arguments.
+- The executor attempts the SQL/DB path first and falls back to file-backed `_summaries` parsing if the database path is unavailable.
 - Supported intents: `dates_for_value`, `top_values`, `mood_timeseries`, `mood_distribution_by_weekday`, `count_distinct_dates_for_value`, `count_by_period`, `grouped_top_values`, `average_importance`.
 
 ### Supported Fields

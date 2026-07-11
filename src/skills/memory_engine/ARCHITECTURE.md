@@ -1,6 +1,6 @@
 # ARCHITECTURE
 
-This document describes the current memory architecture implemented in the `memory_engine` skill. It focuses on how the system avoids classic RAG failure modes (vector dilution, noisy logs, time-based aggregation inaccuracies) by using a hybrid 2-lane RAG design:
+This document describes the current memory architecture implemented in the `memory_engine` skill. It focuses on how the system avoids classic RAG failure modes (vector dilution, noisy logs, time-based aggregation inaccuracies) by using a hybrid 2-lane memory design:
 
 - A semantic recall (RAG) lane backed by Postgres + pgvector (good for “find the relevant day / concept”).
 - A deterministic analytics lane backed by plain SQL over structured daily summaries (good for “counts / trends / top X / date lists”).
@@ -16,11 +16,11 @@ This document reflects the current codebase only and focuses on the architecture
 The system operates on a small set of file types:
 
 - Daily notes: `YYYY-MM-DD.md`
-- Raw transcripts: `YYYY-MM-DD-*.md`
-- Daily summaries: `summaries/YYYY-MM-DD.summary.md` (Markdown with YAML frontmatter)
+- Raw transcripts: `YYYY-MM-DD-*.md` while active, then archived under `daily_sessions/YYYY-MM-DD/`
+- Daily summaries: `_summaries/YYYY-MM-DD.summary.md` in active memory, then `daily_sessions/_summaries/YYYY-MM-DD.summary.md` after archival (Markdown with YAML frontmatter)
 - Core knowledge docs: `MEMORY.md`, `SOUL.md`, `USER.md`, `IDENTITY.md`, `AGENTS.md`, `INFRASTRUCTURE.md`, and `MEMORY_INDEX.md`
 
-Daily summaries are the “junction format”: they power both analytics and the memory index.
+Daily summaries are the "junction format": they power both analytics and the memory index. They are not directly embedded into pgvector one-by-one; instead, they are parsed into SQL rows and condensed into `MEMORY_INDEX.md`, which then participates in semantic recall.
 
 ### 1.2 Storage Backends
 
@@ -48,7 +48,7 @@ Code references:
 
 ## 2. End-to-End Architecture Overview
 
-This diagram provides a high-level overview of the entire memory engine, showing how user queries (both semantic recall and deterministic analytics), the retrieval pipeline, the databases, and the background sync process interact.
+This diagram provides a high-level overview of the implemented memory engine, showing how user queries (both semantic recall and deterministic analytics), the retrieval pipeline, the databases, and the background sync process interact. It intentionally separates the server/runtime flow from the optional follow-up behavior performed by the calling agent after the server returns results. It also shows that semantic recall can produce either date candidates from `MEMORY_INDEX.md` or direct semantic chunks from other core docs.
 
 ```mermaid
 flowchart TD
@@ -59,31 +59,36 @@ flowchart TD
 
  subgraph Tier1 [Tier 1: Semantic Index Map]
  QM --> |1. Vector Search| RAG[(Postgres + pgvector)]
- RAG --> |2. Returned Dates| HS[Hybrid Scoring]
+  RAG --> |2a. Index-map hits -> dates| HS[Hybrid Scoring]
+  RAG --> |2b. Non-index hits| RAG_CHUNKS[Direct semantic chunks]
  HS --> |3. 1-Hop Related Dates Expansion| EXP[Date Candidates]
  end
 
  subgraph Tier2 [Tier 2: On-Demand Summaries]
- EXP --> |4. Load Summaries| NAS_SUM[NAS: daily_sessions/summaries/]
+ EXP --> |4. Load Summaries| NAS_SUM[NAS: daily_sessions/_summaries/]
  NAS_SUM --> |5. Extract Clean Summary + Path + Links| QM
  end
 
- subgraph Tier3 [Tier 3: Lazy Loading Detail Chat]
+ subgraph Tier3 [Tier 3: Agent-Side Optional Detail Fetch]
  QM --> |6. Return Clean Summary to LLM| LLM[LLM Agent]
- LLM --> |7. Optional: Read Raw Logs if Details Needed| NAS_RAW[NAS: daily_sessions/YYYY-MM-DD/]
+  QM --> |6b. Return direct semantic chunks| LLM
+ LLM --> |7. Optional follow-up using returned path| NAS_RAW[NAS: daily_sessions/YYYY-MM-DD/]
  end
 
  subgraph AnalyticsLane [Analytics Lane]
  AGENT --> |Structured Args| QA[query_analytics.py]
  QA --> |Query SQL| SQL[(Postgres SQL: daily_summaries)]
- SQL --> |Deterministic Results| AGENT
+  SQL --> |Deterministic Results| AGENT
+  QA --> |Fallback if DB unavailable| FILES[File-backed summaries]
+  FILES --> |Deterministic fallback| AGENT
  end
 
  subgraph SyncProcess [Sync Process - auto_sync.py]
  Cron[Cron / Manual Run] --> Sync[auto_sync.py]
- Sync --> |Generate| SumFiles[memory/summaries/YYYY-MM-DD.summary.md]
- SumFiles --> |Sync to RAG| RAG
+ Sync --> |Generate / Reconcile| SumFiles[memory/_summaries/YYYY-MM-DD.summary.md]
  SumFiles --> |Sync to SQL| SQL
+ SumFiles --> |Build / Update| INDEX[MEMORY_INDEX.md]
+ INDEX --> |Sync core docs to RAG| RAG
  SumFiles --> |Archive to NAS| NAS_SUM
  Sync --> |Archive Raw Logs to Subfolders| NAS_RAW
  end
@@ -99,6 +104,8 @@ The sync process is orchestrated by `auto_sync.py` and is designed to be increme
 
 - `sync-state.json` is used to drive incremental archival for daily sessions.
 - Summaries are reconciled/created before archival, so the summary layer stays available even after local raw files are cleaned.
+- The summary layer feeds two different downstream products: `daily_summaries` rows for deterministic analytics, and `MEMORY_INDEX.md` for semantic date recall in pgvector.
+- The pgvector lane receives core docs such as `MEMORY_INDEX.md`, `MEMORY.md`, `USER.md`, and related files, not raw `.summary.md` files directly.
 
 Code reference:
 - Orchestrator: [auto_sync.py](file:///Users/gadingnst/Workspace/nouverse/nouva-mcp-server/src/skills/memory_engine/scripts/auto_sync.py)
@@ -114,8 +121,8 @@ flowchart TD
 
   AS --> S2["cleanup_local_rina_mentions()"]
   AS --> S3["sync_daily_summaries_to_db()\n.summary.md -> daily_summaries"]
-  AS --> S4["generate_memory_index()\nfrom summaries (NAS-backed)"]
-  AS --> S5["sync_core_files()\ncore docs -> pgvector"]
+  AS --> S4["generate_memory_index()\n_summaries -> MEMORY_INDEX.md"]
+  AS --> S5["sync_core_files()\nMEMORY_INDEX.md + core docs -> pgvector"]
   AS --> S6["sync_memory_logs()\narchive daily notes + raw + summaries\n(sync-state.json; delete local)"]
   AS --> S7["sync_core_files_to_nas()"]
 ```
@@ -137,6 +144,7 @@ The RAG retrieval path is intentionally hybrid:
 - Summaries are the primary answer surface (short, clean, low token usage).
 - Keyword scanning over summaries is always executed as a safety net.
 - Raw transcripts are not automatically loaded; they are exposed via NAS path pointers.
+- Some pgvector hits can also be returned directly as semantic chunks when they come from non-index core docs such as `MEMORY.md`; date extraction is not the only output path.
 
 Entry point:
 - Tool wrapper: [query_memory.py](file:///Users/gadingnst/Workspace/nouverse/nouva-mcp-server/src/skills/memory_engine/tools/query_memory.py)
@@ -155,7 +163,7 @@ flowchart TD
     D -->|no| RC["Keep as direct semantic chunks\n(MEMORY.md etc.)"]
 
     EX --> HS["Hybrid score per date\nsemantic+importance+recency\n+ configurable related_dates traversal"]
-    HS --> SUM["Tier B: read summaries\n(local summaries/ OR NAS daily_sessions/summaries)"]
+    HS --> SUM["Tier B: read summaries\n(local _summaries/ OR NAS daily_sessions/_summaries)"]
 
     QM --> KW["Tier C: keyword scan summaries (always)\nmerge + dedupe"]
   end
@@ -165,19 +173,21 @@ flowchart TD
   RC --> OUT
 ```
 
+In implementation terms, Tier 3 is not performed by `query_memory.py` itself. The script returns summaries and archive path pointers; a higher-level agent may choose to read the raw archived files afterward if more detail is needed.
+
 ---
 
 ## 5. Analytics Flow (query_analytics.py)
 
 *(This section details the **Analytics Lane** shown in the End-to-End Architecture Overview)*
 
-Analytics queries should not be answered by semantic search. They are routed to SQL over `daily_summaries` and return deterministic results (counts, distributions, top values, date lists).
+Analytics queries should not be answered by semantic search. They are routed to SQL over `daily_summaries` and return deterministic results (counts, distributions, top values, date lists). If the DB path is unavailable, the same structured request falls back to file-backed summary parsing so the analytics lane remains usable.
 
 `query_analytics.py` is now an executor only:
 
 - It accepts **structured analytics arguments**, not natural-language questions.
 - Natural-language parsing belongs in the agent/client layer.
-- The server validates the structured payload, syncs `daily_summaries`, then executes SQL or file-backed fallback logic.
+- The server validates the structured payload, attempts to sync `daily_summaries`, then executes SQL first and falls back to file-backed summary logic if needed.
 - The analytics contract now supports both base intents (`dates_for_value`, `top_values`, `mood_timeseries`, `mood_distribution_by_weekday`) and quick-win aggregate intents (`count_distinct_dates_for_value`, `count_by_period`, `grouped_top_values`, `average_importance`).
 
 Code reference:
@@ -188,9 +198,11 @@ Code reference:
 flowchart TD
   U["User analytics question\n(trends / counts / top X)"] --> AGENT["Agent/client parser\nconverts NL -> structured args"]
   AGENT --> QA["query_analytics.py\n(validate + execute)"]
-  QA --> SYNC["sync_daily_summaries_to_db()"]
+  QA --> SYNC["try sync_daily_summaries_to_db()"]
   SYNC --> SQL["SQL queries on daily_summaries"]
   SQL --> OUT["Deterministic analytics answer\n(+ optional date list)"]
+  QA --> FB["Fallback: load _summaries from files"]
+  FB --> OUT
 ```
 
 ---

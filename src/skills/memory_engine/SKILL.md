@@ -12,8 +12,8 @@ Use this skill for Nouva's 2-lane memory system:
 - **Operational tools** for transcript writing, raw file access, and sync orchestration.
 
 ## Tools
-- `mcp_query_memory`: semantic recall (pgvector + fallback). Use for recall/context only, not for counts, ranking, aggregation, or trend analysis.
-- `mcp_query_analytics`: deterministic analytics executor over daily YAML summaries. Structured input only; the agent must parse natural language before calling it.
+- `mcp_query_memory`: semantic recall tool. Returns the best matching summaries and archive path pointers for follow-up. Use for recall/context only, not for counts, ranking, aggregation, or trend analysis.
+- `mcp_query_analytics`: deterministic analytics executor over daily summaries. Structured input only; the agent must parse natural language before calling it.
 - `mcp_grep_memory`: search for a specific keyword or pattern inside all memory markdown files (active and/or archived).
 - `mcp_read_memory_file`: read the raw content of a specific memory markdown file using its relative path.
 - `mcp_write_transcript`: writes a session transcript into the memory workspace.
@@ -39,13 +39,14 @@ Use these rules to keep analytics answers deterministic:
 - Do not use `mcp_query_memory` to answer counts, top values, averages, trends, distributions, or grouped/date-based analytics.
 - For mixed questions, run `mcp_query_analytics` first to identify candidate dates or periods, then run `mcp_query_memory` only if the user also wants detailed context.
 - Use `mcp_grep_memory` when searching for exact strings, IDs, errors, or codes that might not yield good semantic matches in vector search.
-- Use `mcp_read_memory_file` to read the full content of a specific session transcript or daily summary once you have the relative path.
+- Use `mcp_read_memory_file` to read the full content of a specific session transcript or daily summary once you have the exact relative path.
+- If `mcp_query_memory` only gives you a date or archive directory hint, use `mcp_grep_memory` first to locate the exact relative file path, then call `mcp_read_memory_file`.
 - Use `mcp_write_transcript` only when conversation history should be written into active memory. Do not log transcripts by default.
 - Use `mcp_sync_memory` only for explicit sync, rebuild, ingestion, or maintenance operations. Do not run it as part of normal recall.
 
 ## `mcp_query_analytics` Contract
 
-This tool accepts structured arguments only.
+This tool accepts structured arguments only and is designed as an executor, not a natural-language parser.
 
 Supported intents:
 
