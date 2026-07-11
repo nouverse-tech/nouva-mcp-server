@@ -227,7 +227,7 @@ Then connect using:
 ### Do you need additional editor guidelines?
 
 Connecting to the MCP server is enough for tool discovery. For best results, add a short routing rule in your agent instructions:
-- Use `mcp_query_analytics` for aggregation/time-series questions, but call it with structured arguments only after the agent parses the user's natural-language request.
+- Use `mcp_query_analytics` for aggregation/time-series questions, but call it with structured arguments only after the agent parses the user's natural-language request. The analytics contract supports date lists, top values, weekday distributions, distinct-date counts, counts by period, grouped top values, and average importance.
 - Use `mcp_query_memory` for detailed recall and context.
 
 ---

@@ -155,3 +155,141 @@ def get_top_values(
     finally:
         cur.close()
 
+
+def count_distinct_dates_for_array_value(
+    conn,
+    column: str,
+    value: str,
+    start_date: datetime.date | None = None,
+    end_date: datetime.date | None = None,
+) -> int:
+    if column not in _ARRAY_COLUMNS:
+        return 0
+    cur = conn.cursor()
+    try:
+        query = f"""
+            SELECT COUNT(*)
+            FROM daily_summaries
+            WHERE EXISTS (
+                SELECT 1 FROM unnest({column}) v WHERE lower(v) = lower(%s)
+            )
+        """
+        params = [value]
+        if start_date and end_date:
+            query += " AND date BETWEEN %s AND %s"
+            params.extend([start_date, end_date])
+        cur.execute(query, tuple(params))
+        row = cur.fetchone()
+        return int(row[0] or 0) if row else 0
+    finally:
+        cur.close()
+
+
+def get_count_by_period(
+    conn,
+    column: str,
+    value: str,
+    period: str,
+    start_date: datetime.date,
+    end_date: datetime.date,
+) -> list[tuple[datetime.date, int]]:
+    if column not in _ARRAY_COLUMNS or period not in ("day", "week", "month"):
+        return []
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            f"""
+            SELECT date_trunc(%s, date)::date AS bucket, COUNT(*) AS count
+            FROM daily_summaries
+            WHERE date BETWEEN %s AND %s
+              AND EXISTS (
+                SELECT 1 FROM unnest({column}) v WHERE lower(v) = lower(%s)
+              )
+            GROUP BY bucket
+            ORDER BY bucket ASC;
+            """,
+            (period, start_date, end_date, value),
+        )
+        return [(r[0], r[1]) for r in cur.fetchall()]
+    finally:
+        cur.close()
+
+
+def get_grouped_top_values(
+    conn,
+    column: str,
+    period: str,
+    start_date: datetime.date,
+    end_date: datetime.date,
+    limit: int = 10,
+) -> list[tuple[datetime.date, str, int]]:
+    if column not in _ARRAY_COLUMNS or period not in ("day", "week", "month"):
+        return []
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            f"""
+            WITH ranked AS (
+                SELECT
+                    date_trunc(%s, date)::date AS bucket,
+                    val,
+                    COUNT(*) AS count,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY date_trunc(%s, date)::date
+                        ORDER BY COUNT(*) DESC, val ASC
+                    ) AS rn
+                FROM (
+                    SELECT date, unnest({column}) AS val
+                    FROM daily_summaries
+                    WHERE date BETWEEN %s AND %s
+                ) t
+                WHERE val IS NOT NULL AND val <> ''
+                GROUP BY bucket, val
+            )
+            SELECT bucket, val, count
+            FROM ranked
+            WHERE rn <= %s
+            ORDER BY bucket ASC, count DESC, val ASC;
+            """,
+            (period, period, start_date, end_date, limit),
+        )
+        return [(r[0], r[1], r[2]) for r in cur.fetchall()]
+    finally:
+        cur.close()
+
+
+def get_average_importance(
+    conn,
+    start_date: datetime.date | None = None,
+    end_date: datetime.date | None = None,
+    column: str | None = None,
+    value: str | None = None,
+) -> tuple[float | None, int]:
+    if column is not None and column not in _ARRAY_COLUMNS:
+        return None, 0
+    cur = conn.cursor()
+    try:
+        query = """
+            SELECT AVG(importance)::float, COUNT(*)
+            FROM daily_summaries
+            WHERE importance IS NOT NULL
+        """
+        params = []
+        if start_date and end_date:
+            query += " AND date BETWEEN %s AND %s"
+            params.extend([start_date, end_date])
+        if column and value:
+            query += f"""
+             AND EXISTS (
+                SELECT 1 FROM unnest({column}) v WHERE lower(v) = lower(%s)
+             )
+            """
+            params.append(value)
+        cur.execute(query, tuple(params))
+        row = cur.fetchone()
+        if not row:
+            return None, 0
+        avg_value, count = row
+        return (float(avg_value), int(count)) if avg_value is not None else (None, int(count or 0))
+    finally:
+        cur.close()

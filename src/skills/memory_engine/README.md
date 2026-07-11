@@ -69,17 +69,18 @@ python3 src/skills/memory_engine/scripts/auto_sync.py
 
 - Do not send natural-language questions directly to the tool.
 - The agent/client must first parse the user's request into explicit arguments.
-- Supported intents: `dates_for_value`, `top_values`, `mood_timeseries`, `mood_distribution_by_weekday`.
+- Supported intents: `dates_for_value`, `top_values`, `mood_timeseries`, `mood_distribution_by_weekday`, `count_distinct_dates_for_value`, `count_by_period`, `grouped_top_values`, `average_importance`.
 
 ### Supported Fields
 
 - `intent`: required.
-- `column`: required for `dates_for_value` and `top_values`. Allowed values: `projects`, `tags`, `people`, `technologies`.
-- `value`: required for `dates_for_value`.
-- `start_date`, `end_date`: ISO `YYYY-MM-DD`. Required for `mood_timeseries`. Optional for `dates_for_value`. Optional for `top_values`, which defaults to the last 30 days when both are omitted.
+- `column`: required for `dates_for_value`, `top_values`, `count_distinct_dates_for_value`, `count_by_period`, and `grouped_top_values`. Allowed values: `projects`, `tags`, `people`, `technologies`. Optional for `average_importance`.
+- `value`: required for `dates_for_value`, `count_distinct_dates_for_value`, and `count_by_period`. Optional for `average_importance`, but required if `column` is provided.
+- `start_date`, `end_date`: ISO `YYYY-MM-DD`. Required for `mood_timeseries`. Optional for `dates_for_value`, `count_distinct_dates_for_value`, and `average_importance`. Optional for `top_values`, which defaults to the last 30 days when both are omitted. Optional for `count_by_period` and `grouped_top_values`, which default to the last 90 days when both are omitted.
 - `weekday`: integer `0..6` (`0=Monday`).
 - `weekday_name`: alternative to `weekday`, allowed values `monday..sunday`.
-- `limit`: optional for `top_values`, range `1..50`, default `20`.
+- `limit`: optional for `top_values` and `grouped_top_values`, range `1..50`, default `20` for `top_values` and `5` for `grouped_top_values`.
+- `period`: required for `count_by_period` and `grouped_top_values`. Allowed values: `day`, `week`, `month`.
 
 ### Example Tool Calls
 
@@ -121,5 +122,55 @@ Mood distribution by weekday:
 {
   "intent": "mood_distribution_by_weekday",
   "weekday": 1
+}
+```
+
+Distinct dates for one value:
+
+```json
+{
+  "intent": "count_distinct_dates_for_value",
+  "column": "projects",
+  "value": "Nouverse",
+  "start_date": "2025-05-01",
+  "end_date": "2025-05-31"
+}
+```
+
+Counts grouped by period:
+
+```json
+{
+  "intent": "count_by_period",
+  "column": "projects",
+  "value": "Nouverse",
+  "period": "month",
+  "start_date": "2025-01-01",
+  "end_date": "2025-06-30"
+}
+```
+
+Top values grouped by period:
+
+```json
+{
+  "intent": "grouped_top_values",
+  "column": "tags",
+  "period": "month",
+  "start_date": "2025-01-01",
+  "end_date": "2025-06-30",
+  "limit": 5
+}
+```
+
+Average importance:
+
+```json
+{
+  "intent": "average_importance",
+  "column": "projects",
+  "value": "Nouverse",
+  "start_date": "2025-05-01",
+  "end_date": "2025-05-31"
 }
 ```

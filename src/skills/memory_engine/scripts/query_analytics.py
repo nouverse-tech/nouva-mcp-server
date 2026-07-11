@@ -11,6 +11,8 @@ from sync.analytics_sync import load_daily_summaries_from_files, sync_daily_summ
 from db.analytics_repo import (
     ensure_schema,
     get_dates_for_array_value,
+    get_grouped_top_values,
+    get_average_importance,
     get_mood_distribution_by_weekday,
     get_mood_timeseries,
     get_top_values,
@@ -42,16 +44,22 @@ _VALID_INTENTS = {
     "top_values",
     "mood_timeseries",
     "mood_distribution_by_weekday",
+    "count_distinct_dates_for_value",
+    "count_by_period",
+    "grouped_top_values",
+    "average_importance",
 }
 
 _SCHEMA_HELP = (
     "Structured analytics query required. Supported intents: "
-    "dates_for_value, top_values, mood_timeseries, mood_distribution_by_weekday.\n"
-    "Fields: intent, column, value, start_date, end_date, weekday, weekday_name, limit.\n"
+    "dates_for_value, top_values, mood_timeseries, mood_distribution_by_weekday, "
+    "count_distinct_dates_for_value, count_by_period, grouped_top_values, average_importance.\n"
+    "Fields: intent, column, value, start_date, end_date, weekday, weekday_name, limit, period.\n"
     "Examples:\n"
     '- {"intent":"top_values","column":"tags","start_date":"2025-05-01","end_date":"2025-05-31","limit":10}\n'
     '- {"intent":"dates_for_value","column":"projects","value":"Nouverse"}\n'
-    '- {"intent":"mood_distribution_by_weekday","weekday":1}'
+    '- {"intent":"mood_distribution_by_weekday","weekday":1}\n'
+    '- {"intent":"count_by_period","column":"projects","value":"Nouverse","period":"month","start_date":"2025-01-01","end_date":"2025-06-30"}'
 )
 
 
@@ -109,10 +117,50 @@ def _render_kv_table(rows: list[tuple[str, int]]) -> str:
     return "\n".join([f"- {k}: {v}" for k, v in rows])
 
 
+def _render_period_counts(rows: list[tuple[datetime.date, int]]) -> str:
+    """Render period/count rows as markdown bullets."""
+    if not rows:
+        return "(empty)"
+    return "\n".join([f"- {bucket.strftime('%Y-%m-%d')}: {count}" for bucket, count in rows])
+
+
+def _render_grouped_period_values(rows: list[tuple[datetime.date, str, int]]) -> str:
+    """Render grouped top values by period."""
+    if not rows:
+        return "(empty)"
+
+    groups = {}
+    for bucket, value, count in rows:
+        groups.setdefault(bucket, []).append((value, count))
+
+    lines = []
+    for bucket in sorted(groups):
+        lines.append(f"{bucket.strftime('%Y-%m-%d')}:")
+        for value, count in groups[bucket]:
+            lines.append(f"- {value}: {count}")
+    return "\n".join(lines)
+
+
+def _render_average_importance(avg_value: float | None, count: int, start_date: datetime.date | None, end_date: datetime.date | None, label: str | None = None) -> str:
+    """Render average importance summary text."""
+    range_part = f" ({start_date} to {end_date})" if start_date and end_date else ""
+    label_part = f" for {label}" if label else ""
+    if avg_value is None:
+        return f"Average importance{label_part}{range_part}: (empty)"
+    return f"Average importance{label_part}{range_part}: {avg_value:.2f} across {count} day(s)"
+
+
 def _default_top_values_range() -> tuple[datetime.date, datetime.date]:
     """Return the default date window for top_values when none is provided."""
     end_date = datetime.date.today()
     start_date = end_date - datetime.timedelta(days=29)
+    return start_date, end_date
+
+
+def _default_period_range() -> tuple[datetime.date, datetime.date]:
+    """Return the default date window for period-based analytics."""
+    end_date = datetime.date.today()
+    start_date = end_date - datetime.timedelta(days=89)
     return start_date, end_date
 
 
@@ -136,6 +184,16 @@ def _normalize_weekday(weekday: int | str | None, weekday_name: str | None) -> i
     return None
 
 
+def _normalize_period(period: str | None) -> str | None:
+    """Normalize aggregation period."""
+    if not period:
+        return None
+    value = str(period).strip().lower()
+    if value in {"day", "week", "month"}:
+        return value
+    raise ValueError("period must be one of day, week, or month.")
+
+
 def _validate_request(request: dict) -> dict:
     """Validate and normalize a structured analytics request."""
     if not isinstance(request, dict):
@@ -156,15 +214,18 @@ def _validate_request(request: dict) -> dict:
     value = request.get("value")
     weekday = _normalize_weekday(request.get("weekday"), request.get("weekday_name"))
     limit = request.get("limit")
+    period = _normalize_period(request.get("period"))
 
-    if intent in {"dates_for_value", "top_values"} and not column:
+    if intent in {"dates_for_value", "top_values", "count_distinct_dates_for_value", "count_by_period", "grouped_top_values"} and not column:
         raise ValueError(f"intent '{intent}' requires column.")
-    if intent == "dates_for_value" and not value:
-        raise ValueError("intent 'dates_for_value' requires value.")
+    if intent in {"dates_for_value", "count_distinct_dates_for_value", "count_by_period"} and not value:
+        raise ValueError(f"intent '{intent}' requires value.")
     if intent == "mood_timeseries" and not (start_date and end_date):
         raise ValueError("intent 'mood_timeseries' requires start_date and end_date.")
     if intent == "mood_distribution_by_weekday" and weekday is None:
         raise ValueError("intent 'mood_distribution_by_weekday' requires weekday or weekday_name.")
+    if intent in {"count_by_period", "grouped_top_values"} and not period:
+        raise ValueError(f"intent '{intent}' requires period.")
 
     if limit is not None:
         try:
@@ -178,6 +239,13 @@ def _validate_request(request: dict) -> dict:
         limit = 20
     if intent == "top_values" and not (start_date and end_date):
         start_date, end_date = _default_top_values_range()
+    if intent == "grouped_top_values" and limit is None:
+        limit = 5
+    if intent in {"count_by_period", "grouped_top_values"} and not (start_date and end_date):
+        start_date, end_date = _default_period_range()
+
+    if intent == "average_importance" and column and not value:
+        raise ValueError("average_importance requires value when column is provided.")
 
     return {
         "intent": intent,
@@ -187,6 +255,7 @@ def _validate_request(request: dict) -> dict:
         "end_date": end_date,
         "weekday": weekday,
         "limit": limit,
+        "period": period,
     }
 
 
@@ -207,6 +276,7 @@ def _execute_query_db(request: dict, config: dict, conn) -> str | None:
     start_date = request["start_date"]
     end_date = request["end_date"]
     weekday = request["weekday"]
+    period = request["period"]
 
     if intent == "dates_for_value":
         variants = _map_query_value(value, column, config) or [value]
@@ -233,6 +303,47 @@ def _execute_query_db(request: dict, config: dict, conn) -> str | None:
         day_name = _WEEKDAY_DISPLAY.get(weekday, str(weekday))
         return f"Mood distribution on {day_name}:\n{_render_kv_table(dist)}"
 
+    if intent == "count_distinct_dates_for_value":
+        variants = _map_query_value(value, column, config) or [value]
+        dates = set()
+        for variant in variants:
+            variant_dates = get_dates_for_array_value(conn, column, variant)
+            if start_date and end_date:
+                variant_dates = [d for d in variant_dates if start_date <= d <= end_date]
+            dates.update(variant_dates)
+        range_part = f" ({start_date} to {end_date})" if start_date and end_date else ""
+        return f"Distinct dates associated with {column} '{value}'{range_part}: {len(dates)}"
+
+    if intent == "count_by_period":
+        variants = _map_query_value(value, column, config) or [value]
+        counts = {}
+        for variant in variants:
+            for date_value in get_dates_for_array_value(conn, column, variant):
+                if not (start_date <= date_value <= end_date):
+                    continue
+                if period == "day":
+                    bucket = date_value
+                elif period == "week":
+                    bucket = date_value - datetime.timedelta(days=date_value.weekday())
+                else:
+                    bucket = date_value.replace(day=1)
+                counts[bucket] = counts.get(bucket, 0) + 1
+        rows = sorted(counts.items(), key=lambda x: x[0])
+        return f"Count by {period} for {column} '{value}' ({start_date} to {end_date}):\n{_render_period_counts(rows)}"
+
+    if intent == "grouped_top_values":
+        rows = get_grouped_top_values(conn, column, period, start_date, end_date, limit=request["limit"])
+        return f"Top {column} by {period} ({start_date} to {end_date}):\n{_render_grouped_period_values(rows)}"
+
+    if intent == "average_importance":
+        label = f"{column} '{value}'" if column and value else None
+        filter_value = None
+        if column and value:
+            variants = _map_query_value(value, column, config) or [value]
+            filter_value = variants[-1]
+        avg_value, count = get_average_importance(conn, start_date, end_date, column, filter_value)
+        return _render_average_importance(avg_value, count, start_date, end_date, label)
+
     return None
 
 
@@ -248,6 +359,7 @@ def _execute_query_files(request: dict, config: dict) -> str | None:
     start_date = request["start_date"]
     end_date = request["end_date"]
     weekday = request["weekday"]
+    period = request["period"]
 
     if intent == "dates_for_value":
         variants = _map_query_value(value, column, config) or [value]
@@ -292,6 +404,79 @@ def _execute_query_files(request: dict, config: dict) -> str | None:
         dist = sorted(counts.items(), key=lambda x: (-x[1], x[0]))
         day_name = _WEEKDAY_DISPLAY.get(weekday, str(weekday))
         return f"Mood distribution on {day_name}:\n{_render_kv_table(dist)}"
+
+    if intent == "count_distinct_dates_for_value":
+        variants = _map_query_value(value, column, config) or [value]
+        variants_lower = {v.lower() for v in variants}
+        dates = {
+            summary["date"]
+            for summary in summaries
+            if any(item.lower() in variants_lower for item in (summary.get(column) or []))
+            and (not start_date or not end_date or start_date <= summary["date"] <= end_date)
+        }
+        range_part = f" ({start_date} to {end_date})" if start_date and end_date else ""
+        return f"Distinct dates associated with {column} '{value}'{range_part}: {len(dates)}"
+
+    if intent == "count_by_period":
+        variants = _map_query_value(value, column, config) or [value]
+        variants_lower = {v.lower() for v in variants}
+        counts = {}
+        for summary in summaries:
+            if not (start_date <= summary["date"] <= end_date):
+                continue
+            if not any(item.lower() in variants_lower for item in (summary.get(column) or [])):
+                continue
+            date_value = summary["date"]
+            if period == "day":
+                bucket = date_value
+            elif period == "week":
+                bucket = date_value - datetime.timedelta(days=date_value.weekday())
+            else:
+                bucket = date_value.replace(day=1)
+            counts[bucket] = counts.get(bucket, 0) + 1
+        rows = sorted(counts.items(), key=lambda x: x[0])
+        return f"Count by {period} for {column} '{value}' ({start_date} to {end_date}):\n{_render_period_counts(rows)}"
+
+    if intent == "grouped_top_values":
+        grouped = {}
+        for summary in summaries:
+            if not (start_date <= summary["date"] <= end_date):
+                continue
+            date_value = summary["date"]
+            if period == "day":
+                bucket = date_value
+            elif period == "week":
+                bucket = date_value - datetime.timedelta(days=date_value.weekday())
+            else:
+                bucket = date_value.replace(day=1)
+            grouped.setdefault(bucket, {})
+            for item in (summary.get(column) or []):
+                if item:
+                    grouped[bucket][item] = grouped[bucket].get(item, 0) + 1
+        rows = []
+        for bucket, bucket_counts in grouped.items():
+            top_rows = sorted(bucket_counts.items(), key=lambda x: (-x[1], x[0]))[:request["limit"]]
+            rows.extend([(bucket, item, count) for item, count in top_rows])
+        rows = sorted(rows, key=lambda x: (x[0], -x[2], x[1]))
+        return f"Top {column} by {period} ({start_date} to {end_date}):\n{_render_grouped_period_values(rows)}"
+
+    if intent == "average_importance":
+        relevant = []
+        for summary in summaries:
+            if start_date and end_date and not (start_date <= summary["date"] <= end_date):
+                continue
+            if column and value:
+                variants = _map_query_value(value, column, config) or [value]
+                variants_lower = {v.lower() for v in variants}
+                if not any(item.lower() in variants_lower for item in (summary.get(column) or [])):
+                    continue
+            importance = summary.get("importance")
+            if importance is None:
+                continue
+            relevant.append(int(importance))
+        avg_value = (sum(relevant) / len(relevant)) if relevant else None
+        label = f"{column} '{value}'" if column and value else None
+        return _render_average_importance(avg_value, len(relevant), start_date, end_date, label)
 
     return None
 

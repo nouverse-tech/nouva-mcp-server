@@ -83,16 +83,21 @@ Supported intents:
 - `top_values`: count top values in one array column across a date range.
 - `mood_timeseries`: list mood by date across a date range.
 - `mood_distribution_by_weekday`: aggregate mood counts for one weekday.
+- `count_distinct_dates_for_value`: return how many distinct dates contain one value.
+- `count_by_period`: return counts for one value grouped by `day`, `week`, or `month`.
+- `grouped_top_values`: return top values for each `day`, `week`, or `month`.
+- `average_importance`: return average `importance`, optionally filtered by one `column` + `value`.
 
 Supported fields:
 
 - `intent`: required.
-- `column`: required for `dates_for_value` and `top_values`. Allowed values: `projects`, `tags`, `people`, `technologies`.
-- `value`: required for `dates_for_value`.
-- `start_date`, `end_date`: ISO `YYYY-MM-DD`. Required for `mood_timeseries`. Optional for `dates_for_value`. Optional for `top_values` and defaults to the last 30 days if omitted.
+- `column`: required for `dates_for_value`, `top_values`, `count_distinct_dates_for_value`, `count_by_period`, and `grouped_top_values`. Allowed values: `projects`, `tags`, `people`, `technologies`. Optional for `average_importance`.
+- `value`: required for `dates_for_value`, `count_distinct_dates_for_value`, and `count_by_period`. Optional for `average_importance`, but required if `column` is provided.
+- `start_date`, `end_date`: ISO `YYYY-MM-DD`. Required for `mood_timeseries`. Optional for `dates_for_value`, `count_distinct_dates_for_value`, and `average_importance`. Optional for `top_values` and defaults to the last 30 days if omitted. Optional for `count_by_period` and `grouped_top_values`, which default to the last 90 days if omitted.
 - `weekday`: integer `0..6` where `0=Monday`.
 - `weekday_name`: alternative to `weekday`, allowed values `monday..sunday`.
-- `limit`: optional for `top_values`, range `1..50`, default `20`.
+- `limit`: optional for `top_values` and `grouped_top_values`, range `1..50`, default `20` for `top_values` and `5` for `grouped_top_values`.
+- `period`: required for `count_by_period` and `grouped_top_values`. Allowed values: `day`, `week`, `month`.
 
 Examples:
 
@@ -100,6 +105,10 @@ Examples:
 - `{"intent":"dates_for_value","column":"projects","value":"Nouverse"}`
 - `{"intent":"mood_timeseries","start_date":"2026-07-01","end_date":"2026-07-10"}`
 - `{"intent":"mood_distribution_by_weekday","weekday":1}`
+- `{"intent":"count_distinct_dates_for_value","column":"projects","value":"Nouverse","start_date":"2025-05-01","end_date":"2025-05-31"}`
+- `{"intent":"count_by_period","column":"projects","value":"Nouverse","period":"month","start_date":"2025-01-01","end_date":"2025-06-30"}`
+- `{"intent":"grouped_top_values","column":"tags","period":"month","start_date":"2025-01-01","end_date":"2025-06-30","limit":5}`
+- `{"intent":"average_importance","column":"projects","value":"Nouverse","start_date":"2025-05-01","end_date":"2025-05-31"}`
 
 ### MCP client configuration (agent side)
 The agent must be configured to connect to this MCP server (via Stdio or SSE) to call the tools above.

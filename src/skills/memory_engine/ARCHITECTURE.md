@@ -166,6 +166,7 @@ Analytics queries should not be answered by semantic search. They are routed to 
 - It accepts **structured analytics arguments**, not natural-language questions.
 - Natural-language parsing belongs in the agent/client layer.
 - The server validates the structured payload, syncs `daily_summaries`, then executes SQL or file-backed fallback logic.
+- The analytics contract now supports both base intents (`dates_for_value`, `top_values`, `mood_timeseries`, `mood_distribution_by_weekday`) and quick-win aggregate intents (`count_distinct_dates_for_value`, `count_by_period`, `grouped_top_values`, `average_importance`).
 
 Code reference:
 - Tool script: [query_analytics.py](file:///Users/gadingnst/Workspace/nouverse/nouva-mcp-server/src/skills/memory_engine/scripts/query_analytics.py)
