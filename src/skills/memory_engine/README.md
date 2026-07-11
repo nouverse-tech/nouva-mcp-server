@@ -174,3 +174,12 @@ Average importance:
   "end_date": "2025-05-31"
 }
 ```
+
+---
+
+## Visual Graph with Obsidian
+
+Since all daily logs and summaries are stored in a clean Markdown format (`YYYY-MM-DD.md` and `_summaries/YYYY-MM-DD.summary.md`), you can easily open the active/archived memory directories in [Obsidian](https://obsidian.md) to explore your memories visually as an interconnected knowledge graph.
+
+![Obsidian Graph View](../../../assets/obsidian_graph.jpg)
+

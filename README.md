@@ -240,3 +240,8 @@ Connecting to the MCP server is enough for tool discovery. For best results, add
 
 ## Memory Engine Integration
 For detailed setup instructions regarding the 2-lane memory architecture, pgvector recall, SQL analytics, embedding settings, database initialization, and memory sync operations, please refer to the [Memory Engine README](src/skills/memory_engine/README.md).
+
+### Visual Graph with Obsidian
+Since all daily logs and summaries are stored in a clean Markdown format (`YYYY-MM-DD.md` and `_summaries/YYYY-MM-DD.summary.md`), you can easily open the active/archived memory directories in [Obsidian](https://obsidian.md) to explore your memories visually as an interconnected knowledge graph.
+
+![Obsidian Graph View](assets/obsidian_graph.jpg)
