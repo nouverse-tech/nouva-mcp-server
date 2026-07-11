@@ -11,13 +11,13 @@ async def handler(skill_name: str, description: str = "", tools: list[str] = Non
     """Create a new skill with complete boilerplates.
     
     Args:
-        skill_name: Name of the skill (kebab-case, e.g. 'domain-management')
+        skill_name: Name of the skill (snake_case, e.g. 'domain_management')
         description: Short description of the skill
         tools: List of tool names to create boilerplates for (e.g. ['add_domain', 'remove_domain'])
     """
-    # Clean skill name to kebab-case
-    skill_name = re.sub(r'[^a-zA-Z0-9\s-]', '', skill_name).strip().lower()
-    skill_name = re.sub(r'[\s_]+', '-', skill_name)
+    # Clean skill name to snake_case
+    skill_name = re.sub(r'[^a-zA-Z0-9\s_]', '', skill_name).strip().lower()
+    skill_name = re.sub(r'[\s-]+', '_', skill_name)
     
     if not skill_name:
         return "Error: Invalid skill name."
@@ -35,7 +35,7 @@ async def handler(skill_name: str, description: str = "", tools: list[str] = Non
         tools_dir.mkdir(parents=True, exist_ok=True)
         
         # 2. Write SKILL.md
-        skill_md_content = f"""# Guidelines for {skill_name.replace('-', ' ').title()}
+        skill_md_content = f"""# Guidelines for {skill_name.replace('_', ' ').title()}
 
 {description or 'Write detailed instructions for the LLM regarding this skill here.'}
 
