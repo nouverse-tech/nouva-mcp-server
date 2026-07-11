@@ -40,7 +40,7 @@ def parse_summary_yaml(date_str: str, summaries_dir: str, archived_memory_dir: s
     """Parse YAML frontmatter from a .summary.md file."""
     path = os.path.join(summaries_dir, f"{date_str}.summary.md")
     if not os.path.exists(path):
-        path = os.path.join(archived_memory_dir, "daily_sessions/summaries", f"{date_str}.summary.md")
+        path = os.path.join(archived_memory_dir, "daily_sessions/_summaries", f"{date_str}.summary.md")
     if not os.path.exists(path):
         return {}
 

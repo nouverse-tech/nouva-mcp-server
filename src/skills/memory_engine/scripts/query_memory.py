@@ -11,7 +11,7 @@ from db import db_helper
 
 config = load_memory_config()
 ACTIVE_MEMORY_DIR, ARCHIVED_MEMORY_DIR = resolve_paths(config)
-SUMMARIES_DIR = os.path.join(ACTIVE_MEMORY_DIR, "summaries")
+SUMMARIES_DIR = os.path.join(ACTIVE_MEMORY_DIR, "_summaries")
 RETRIEVAL_LOG_PATH = os.path.join(ACTIVE_MEMORY_DIR, "retrieval.log")
 DATE_PATTERN = re.compile(r"(\d{4}-\d{2}-\d{2})")
 
@@ -81,7 +81,7 @@ def vector_search(query):
 def read_summary_from_nas(date_str):
     path = os.path.join(SUMMARIES_DIR, f"{date_str}.summary.md")
     if not os.path.exists(path):
-        path = os.path.join(ARCHIVED_MEMORY_DIR, "daily_sessions/summaries", f"{date_str}.summary.md")
+        path = os.path.join(ARCHIVED_MEMORY_DIR, "daily_sessions/_summaries", f"{date_str}.summary.md")
     if not os.path.exists(path):
         return None
     try:
@@ -108,7 +108,7 @@ def read_summary_from_nas(date_str):
 def search_keyword_in_nas_summaries(query):
     query_lower = query.lower()
     matches = []
-    nas_summaries_dir = os.path.join(ARCHIVED_MEMORY_DIR, "daily_sessions/summaries")
+    nas_summaries_dir = os.path.join(ARCHIVED_MEMORY_DIR, "daily_sessions/_summaries")
     
     # Check local summaries first
     local_files = []

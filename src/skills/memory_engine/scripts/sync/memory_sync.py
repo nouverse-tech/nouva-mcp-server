@@ -96,14 +96,14 @@ def archive_and_clean_local(memory_dir: str, synced_filenames: list, nas) -> Non
             print(f"❌ Exception transferring {filename}: {e}")
 
     # Transfer corresponding summaries to NAS
-    summaries_dir = os.path.join(memory_dir, "summaries")
+    summaries_dir = os.path.join(memory_dir, "_summaries")
     if os.path.exists(summaries_dir):
         for d in sorted(set(dates)):
             summary_file = f"{d}.summary.md"
             summary_path = os.path.join(summaries_dir, summary_file)
             if os.path.exists(summary_path):
                 try:
-                    if nas.copy_to(summary_path, "daily_sessions/summaries", summary_file):
+                    if nas.copy_to(summary_path, "daily_sessions/_summaries", summary_file):
                         os.remove(summary_path)
                         print(f"✅ Transferred and deleted summary: {summary_file}")
                     else:

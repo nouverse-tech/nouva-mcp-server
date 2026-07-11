@@ -38,7 +38,7 @@ def main():
         config = load_memory_config()
         controlled_vocab = config.get("controlled_vocabulary", {})
         active_memory_dir, archived_memory_dir = resolve_paths(config)
-        summaries_dir = os.path.join(active_memory_dir, "summaries")
+        summaries_dir = os.path.join(active_memory_dir, "_summaries")
 
         nas_ssh_host = config.get("memory_paths", {}).get("nas_ssh_host")
         nas = NasHelper(archived_memory_dir, nas_ssh_host)

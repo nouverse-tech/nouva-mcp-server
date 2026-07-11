@@ -117,10 +117,10 @@ def load_daily_summaries_from_files(config: dict = None) -> list:
     active_memory_dir, archived_memory_dir = resolve_paths(config)
     default_active_dir, default_archived_dir = resolve_paths({})
 
-    active_summaries_dir = os.path.join(active_memory_dir, "summaries")
-    archived_summaries_dir = os.path.join(archived_memory_dir, "daily_sessions", "summaries")
-    default_active_summaries_dir = os.path.join(default_active_dir, "summaries")
-    default_archived_summaries_dir = os.path.join(default_archived_dir, "daily_sessions", "summaries")
+    active_summaries_dir = os.path.join(active_memory_dir, "_summaries")
+    archived_summaries_dir = os.path.join(archived_memory_dir, "daily_sessions", "_summaries")
+    default_active_summaries_dir = os.path.join(default_active_dir, "_summaries")
+    default_archived_summaries_dir = os.path.join(default_archived_dir, "daily_sessions", "_summaries")
 
     summary_files = []
     if os.path.isdir(archived_summaries_dir):

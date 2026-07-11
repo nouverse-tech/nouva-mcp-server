@@ -276,7 +276,7 @@ def reconcile_missing_summaries(
 def generate_memory_index(active_memory_dir: str, archived_memory_dir: str, nas) -> None:
     """Build/update MEMORY_INDEX.md incrementally from local and NAS summaries."""
     print("📝 Generating MEMORY_INDEX.md (Incremental from Summaries)...")
-    local_summaries_dir = os.path.join(active_memory_dir, "summaries")
+    local_summaries_dir = os.path.join(active_memory_dir, "_summaries")
     output_path = os.path.join(active_memory_dir, "MEMORY_INDEX.md")
 
     summary_pattern = re.compile(r"^(\d{4}-\d{2}-\d{2})\.summary\.md$")
@@ -370,11 +370,11 @@ def generate_memory_index(active_memory_dir: str, archived_memory_dir: str, nas)
     # Scan NAS summaries only on full rebuild
     if not index_loaded:
         print("🔄 Rebuild mode: Scanning NAS summaries...")
-        for f in nas.list_dir("daily_sessions/summaries"):
+        for f in nas.list_dir("daily_sessions/_summaries"):
             m = summary_pattern.match(f)
             if m:
                 try:
-                    content = nas.read_text("daily_sessions/summaries", f)
+                    content = nas.read_text("daily_sessions/_summaries", f)
                     if content:
                         info = extract_summary_info(content)
                         if info:
