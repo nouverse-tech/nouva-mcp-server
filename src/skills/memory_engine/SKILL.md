@@ -5,63 +5,21 @@ description: "Use the memory_engine tools for long-term memory recall, determini
 
 # Memory Engine Skill
 
-This skill exposes Nouva's 2-lane memory system:
+Use this skill for Nouva's 2-lane memory system:
 
 - **Semantic recall** via `pgvector` for finding relevant concepts or dates.
 - **Deterministic analytics** via SQL over daily summaries for counts, trends, and date lists.
 - **Operational tools** for transcript writing and sync orchestration.
 
-## Core Config
-- **Memory Config**: `src/skills/memory_engine/memory_config.json` (contains retrieval tuning under `retrieval.*`, graph traversal depth/decay, chunking settings, database connection parameters including credentials, embedding/LLM endpoints, and reserved thresholds for future `MEMORY_INDEX.md` multi-level scaling)
-
-## Helper Scripts (Sync & Query Actions)
-- **Auto Sync**: `src/skills/memory_engine/scripts/auto_sync.py` (Main smart sync for files, daily summaries, and logs)
-- **Unified Memory Query**: `src/skills/memory_engine/scripts/query_memory.py` (Runs pgvector semantic search, applies Hybrid Scoring, traverses `related_dates` using configurable graph depth/decay, then automatically falls back to NAS-by-date and NAS keyword search internally)
-- **DB Init**: `src/skills/memory_engine/scripts/db/init_db.py` (Initialize local pgvector schema)
-
-## Essential Endpoints / Commands
-
-1. **Unified Memory Query (Recommended)**
-   - Command: `python3 src/skills/memory_engine/scripts/query_memory.py "query"`
-   - Purpose: Retrieve memory in one call. The script automatically: (1) searches pgvector for candidate dates/concepts, (2) computes a Hybrid Score using configurable `retrieval.weights`, (3) traverses `related_dates` from `.summary.md` YAML frontmatter using configurable `retrieval.max_graph_depth` and `retrieval.related_date_score_decay`, (4) loads clean daily summaries from local/NAS storage, and (5) always runs keyword search over summaries as a safety net. Raw transcripts are not auto-loaded; the result returns archive path pointers.
-
-## Memory Strategy
-
-- **Writing New Facts**: When an important fact or decision is produced during conversation, write it into the appropriate memory workspace file (`MEMORY.md`, a daily note, or a transcript) explicitly.
-- **Syncing (Automatic, not the agent's job)**: `auto_sync.py` reconciles summaries, syncs `.summary.md` metadata into SQL analytics, syncs core docs into pgvector, and archives raw logs to NAS. This runs as an operational pipeline, not as active "learning".
-
-## Session Transcript Protocol
-
-Nouva can log conversation sessions as transcript files in `active_memory_dir` using the `mcp_write_transcript` tool.
-
-- **File format**: `YYYY-MM-DD-{sequential_id}.md` (e.g. `2026-07-09-0001.md`, `2026-07-09-0002.md`)
-- **Session ID**: Auto-incremented per date. Each new conversation session gets the next available ID.
-- **Header format**: Matches archived sessions (includes `Parent Day`, `Session Key`, `Session ID`, and `Source` fields).
-
-Recommended create call:
-- mode: `create`
-- content: initial conversation content (plain text or markdown)
-- session_key: `agent:main:{provider}:direct:{user_identifier_from_provider}`
-- stable_session_id: UUID for stable cross-system reference (optional; generated if omitted)
-- source: `whatsapp` | `telegram` | `webchat` | `unknown`
-
----
-
-## Agent Integration (How the agent can use this skill)
-
-### What SKILL.md is used for in this repo
-- `SKILL.md` is loaded as resource guidelines by this server's dynamic skill loader, so agents will see it as usage guidance for this skill/tools.
-- This is the best place to put tool-usage rules (when to use analytics vs semantic recall).
-- Server installation details (Docker, mounts, etc.) are better documented in `README.md`, while agent usage rules belong in `SKILL.md`.
-
-### MCP tools exposed by this skill
-- `mcp_query_memory`: semantic recall (pgvector + fallback).
+## Tools
+- `mcp_query_memory`: semantic recall (pgvector + fallback). Use for recall/context only, not for counts, ranking, aggregation, or trend analysis.
 - `mcp_query_analytics`: deterministic analytics executor over daily YAML summaries. Structured input only; the agent must parse natural language before calling it.
 - `mcp_write_transcript`: writes a session transcript into the memory workspace.
-- `mcp_sync_memory`: runs the sync pipeline.
+- `mcp_sync_memory`: runs the sync pipeline. This tool has side effects.
 
-### How the agent should choose tools (routing rules)
-Use these rules to keep analytics answers deterministic (not "LLM guessing"):
+## Routing Rules
+
+Use these rules to keep analytics answers deterministic:
 
 - Use `mcp_query_analytics` for questions that require aggregation/time-series:
   - "which days / when / how many times"
@@ -69,14 +27,22 @@ Use these rules to keep analytics answers deterministic (not "LLM guessing"):
   - "every <weekday>"
   - "last 2 weeks / last month"
   - "what did I talk about most"
+- Prefer `mcp_query_analytics` whenever the user asks for counts, top values, averages, distributions, grouped results, weekday patterns, or date aggregation.
 - Before calling `mcp_query_analytics`, convert the user's question into explicit structured arguments.
 - Never send raw natural-language questions to `mcp_query_analytics`.
 - Use `mcp_query_memory` for detail/context recall:
   - "explain the details from that time"
   - "why / what decision / what plan"
   - "find the conversation that discussed ..."
+- Do not use `mcp_query_memory` to answer counts, top values, averages, trends, distributions, or grouped/date-based analytics.
+- For mixed questions, run `mcp_query_analytics` first to identify candidate dates or periods, then run `mcp_query_memory` only if the user also wants detailed context.
+- Use `mcp_write_transcript` only when conversation history should be written into active memory. Do not log transcripts by default.
+- Use `mcp_sync_memory` only for explicit sync, rebuild, ingestion, or maintenance operations. Do not run it as part of normal recall.
 
-### `mcp_query_analytics` contract
+## `mcp_query_analytics` Contract
+
+This tool accepts structured arguments only.
+
 Supported intents:
 
 - `dates_for_value`: find which dates contain a value in `projects`, `tags`, `people`, or `technologies`.
@@ -110,14 +76,21 @@ Examples:
 - `{"intent":"grouped_top_values","column":"tags","period":"month","start_date":"2025-01-01","end_date":"2025-06-30","limit":5}`
 - `{"intent":"average_importance","column":"projects","value":"Nouverse","start_date":"2025-05-01","end_date":"2025-05-31"}`
 
-### MCP client configuration (agent side)
-The agent must be configured to connect to this MCP server (via Stdio or SSE) to call the tools above.
+## `mcp_write_transcript` Notes
 
-**Option A — Stdio (local)**
-- Best when the agent runs on the same host and can execute Python directly.
-- Example: run `python3 src/main.py --transport stdio`
+- Use `mode="create"` to start a new session transcript.
+- Use `mode="append"` to continue an existing transcript.
+- Preferred `session_key` pattern: `agent:main:{provider}:direct:{user_identifier_from_provider}`.
+- `stable_session_id` is optional; generate one if cross-system reference is needed.
+- `source` should identify the channel, such as `whatsapp`, `telegram`, `webchat`, or `unknown`.
 
-**Option B — SSE (HTTP)**
-- Best when the agent runs in a different environment and connects over HTTP.
-- Run the server: `python3 src/main.py --transport sse --port 8000`
-- Then register the MCP server in the agent using that SSE endpoint (URL depends on your host/IP).
+## Do / Don't
+
+- Do use `mcp_query_memory` for recall and context reconstruction.
+- Do use `mcp_query_analytics` for counts, trends, distributions, and date aggregation.
+- Do convert natural language into structured analytics arguments before calling `mcp_query_analytics`.
+- Do run analytics first for mixed questions that combine aggregation with detail recall.
+- Don't use `mcp_query_memory` to answer aggregation questions.
+- Don't send free-form natural language directly to `mcp_query_analytics`.
+- Don't run sync unless the task explicitly needs memory maintenance or ingestion.
+- Don't write transcripts unless persistent logging is actually required.
