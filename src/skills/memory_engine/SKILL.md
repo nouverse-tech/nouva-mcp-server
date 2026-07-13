@@ -18,7 +18,6 @@ Use this skill for Nouva's 2-lane memory system:
 - `memory_read_file`: read the raw content of a specific memory markdown file using its relative path.
 - `session_write`: writes a session transcript into the memory workspace.
 - `session_manage`: manages slash-command style transcript controls such as auto on/off/status and full-session write.
-- `memory_sync`: runs the sync pipeline. This tool has side effects.
 
 ## Routing Rules
 
@@ -43,7 +42,6 @@ Use these rules to keep analytics answers deterministic:
 - Use `memory_read_file` to read the full content of a specific session transcript or daily summary once you have the exact relative path.
 - If `memory_query` only gives you a date or archive directory hint, use `memory_grep` first to locate the exact relative file path, then call `memory_read_file`.
 - Use `session_write` only when conversation history should be written into active memory. Do not log transcripts by default.
-- Use `memory_sync` only for explicit sync, rebuild, ingestion, or maintenance operations. Do not run it as part of normal recall.
 
 ## `memory_analytics` Contract
 
