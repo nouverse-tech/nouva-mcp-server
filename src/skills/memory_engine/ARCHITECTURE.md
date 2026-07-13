@@ -132,64 +132,92 @@ Summary generation uses a configurable LLM endpoint/model from `memory_config.js
 
 ### 3.3 Transcript Write Mechanism
 
-Raw transcript writing is now handled as a separate operational path from the sync pipeline. This path is designed for **active-session logging** in the writable memory workspace before archival happens.
+Raw transcript writing is handled as a **manual, batch-only** operation, completely separate from the sync pipeline. There is exactly one tool (`session_write`) and one storage function (`write_batch_session`). There is no auto-write, no per-turn append, and no session management commands.
 
-There are two write modes:
+#### How It Works (End-to-End)
 
-- **Per-turn write** via `session_write`: append one completed `user` / `assistant` exchange to the active transcript for a given `stable_session_id`.
-- **Full-session rewrite** via `session_manage` with `/nouva-session-write`: rewrite the active transcript file from the complete in-memory turn list for the current session.
+1. **User trigger**: The user explicitly asks the agent to save/record the current conversation (e.g. "catet convo kita ini ya").
+2. **Agent collects turns**: The agent gathers the full conversation history from the current chat session and serializes it as a JSON array of turn objects:
+   ```json
+   [
+     {"role": "user", "text": "pake persona nouva ya"},
+     {"role": "assistant", "text": "Halo Ding! 🌌🐱 ..."},
+     {"role": "user", "text": "bikin tool baru dong"},
+     {"role": "assistant", "text": "Siap, gw buatin..."}
+   ]
+   ```
+3. **Agent calls `session_write`**: The agent invokes the MCP tool with the serialized turns and optional metadata:
+   - `turns_json` (required): the JSON string from step 2.
+   - `session_key` (optional): identifies the agent + provider + user, e.g. `agent:main:zed:direct:gadingnst`.
+   - `source` (optional): platform name, e.g. `zed`, `whatsapp`.
+   - `stable_session_id` (optional): if omitted, a UUID is auto-generated.
+   - `parent_day` (optional): date string `YYYY-MM-DD`, defaults to today UTC.
+4. **Server writes file**: `write_batch_session()` validates the turns, generates a sequential filename (`YYYY-MM-DD-XXXX.md`), writes the header + all turn blocks to the file, and updates `_session_registry.json`.
+5. **Server returns result**: A JSON response with `status`, `filename`, `stable_session_id`, `session_key`, and `turn_count`.
 
-Both modes share the same storage logic:
+#### Output File Format
 
-- Active transcript files live directly under the active memory directory using the existing naming pattern `YYYY-MM-DD-XXXX.md`.
-- Each transcript file begins with a stable session header:
-  - `# Session: <original session timestamp>`
-  - `Parent Day: [[YYYY-MM-DD]]`
-  - `Session Key`
-  - `Session ID`
-  - `Source`
-- The body uses raw repeated turn blocks instead of summary prose:
-  - `user: ...`
-  - `assistant: ...`
-- The original session timestamp is preserved across full rewrites so a later sync does not overwrite the session start time.
-- `parent_day` is treated as immutable for an existing session to keep the header, registry, filename prefix, and later archive destination consistent.
+```markdown
+# Session: 2026-07-14 12:34:56 UTC
+Parent Day: [[2026-07-14]]
 
-The write path maintains two lightweight registries in active memory:
+- **Session Key**: agent:main:zed:direct:gadingnst
+- **Session ID**: a1b2c3d4-...
+- **Source**: zed
 
-- `_session_registry.json`: maps `stable_session_id` to the active transcript filename and its session metadata.
-- `_transcript_logging_state.json`: stores whether `auto_write_enabled` is on or off for each active session.
+user: pake persona nouva ya
 
-The policy model is intentionally conservative:
+assistant: Halo Ding! 🌌🐱 ...
 
-- Default auto-write mode is **off**.
-- Transcript writes should only happen when the user explicitly triggers a `nouva-session` command or when the current session has already enabled auto-write.
-- This keeps raw transcripts opt-in, avoids noisy memory growth, and prevents accidental long-term logging of ordinary chat turns.
+user: bikin tool baru dong
+
+assistant: Siap, gw buatin...
+```
+
+#### Key Design Decisions
+
+- **Manual only**: The tool is never called automatically. The agent must only invoke it when the user explicitly requests it.
+- **Batch only**: All turns are written at once in a single file. No incremental append, no create-then-append lifecycle.
+- **One file per call**: Each invocation always creates a new `.md` file. There is no rewrite or update mode.
+- **Simple input contract**: Turns use `{"role": "user" | "assistant", "text": "..."}` — the same shape most LLM clients already use internally.
+- **Registry for deduplication**: `_session_registry.json` maps each `stable_session_id` to its filename, preventing accidental duplicate writes of the same session.
+
+#### Storage Artifacts
+
+| Artifact | Location | Purpose |
+|----------|----------|---------|
+| Transcript file | `active/YYYY-MM-DD-XXXX.md` | Raw conversation log with header + turn blocks |
+| Session registry | `active/_session_registry.json` | Maps `stable_session_id` → filename + metadata |
 
 Code references:
 
-- Shared transcript storage logic: [memory_transcript_store.py](memory_scripts/memory_util/memory_transcript_store.py)
-- Per-turn writer tool: [session_write.py](tools/session_write.py) (registers `session_write`)
-- Session command / full-session rewrite tool: [session_manage.py](tools/session_manage.py) (registers `session_manage`)
+- Batch transcript storage logic: [memory_transcript_store.py](memory_scripts/memory_util/memory_transcript_store.py)
+- Batch writer tool: [session_write.py](tools/session_write.py) (registers `session_write`)
 
-### 3.4 Diagram: Active Transcript Write Path
+### 3.4 Diagram: Transcript Write Flow
 
 ```mermaid
-flowchart TD
-  U["User turn or /nouva-session-*"] --> A["Agent / client routing"]
-  A -->|per-turn write| WT["session_write"]
-  A -->|session command| MT["session_manage"]
-  MT -->|auto on/off| LS["_transcript_logging_state.json"]
-  MT -->|full-session rewrite| TS["transcript_store.py"]
-  WT --> TS
-  TS --> SR["_session_registry.json"]
-  TS --> TF["active/YYYY-MM-DD-XXXX.md"]
+sequenceDiagram
+  participant U as User
+  participant A as AI Agent
+  participant T as session_write tool
+  participant S as write_batch_session()
+  participant R as _session_registry.json
+  participant F as YYYY-MM-DD-XXXX.md
 
-  style WT fill:#bbdefb,color:#0d47a1
-  style MT fill:#bbdefb,color:#0d47a1
-  style TS fill:#c8e6c9,color:#1a5e20
-  style SR fill:#fff3e0,color:#e65100
-  style LS fill:#fff3e0,color:#e65100
-  style TF fill:#f3e5f5,color:#7b1fa2
+  U->>A: "catet convo kita ini ya"
+  A->>A: Collect all turns from chat history
+  A->>A: Serialize turns to JSON array
+  A->>T: session_write(turns_json, session_key, source)
+  T->>T: Parse and validate turns_json
+  T->>S: write_batch_session(turns, ...)
+  S->>S: Generate sequential filename
+  S->>S: Build header + render turn blocks
+  S->>F: Write .md file
+  S->>R: Register stable_session_id to filename
+  S-->>T: Return result
+  T-->>A: JSON response with filename and turn_count
+  A-->>U: "Convo saved to 2026-07-14-0001.md (8 turns)"
 ```
 
 ---

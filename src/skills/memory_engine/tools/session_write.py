@@ -1,51 +1,61 @@
+import json
 import os
 import sys
-import json
 
 metadata = {
   "name": "session_write",
   "description": (
-    "Create or append to a session transcript file in active memory using a strict "
-    "stable_session_id-based contract. Use mode='create' exactly once for the first "
-    "user turn of a chat session, then use mode='append' for all later turns with the "
-    "same stable_session_id. The tool stores an active registry so append never guesses "
-    "by latest file. Each write stores a raw transcript turn using 'user:' and "
-    "'assistant:' blocks. Default auto-write mode is off: do not call this tool unless "
-    "the user explicitly requested a nouva-session transcript command or the current "
-    "session has already enabled auto-write. session_key MUST strictly follow "
-    "agent:main:{provider}:direct:{user_identifier_from_provider} where {provider} is the "
-    "host platform/app (e.g. 'zed', 'whatsapp', 'trae', 'cursor', 'claudecode') and NEVER "
-    "the AI model name (like gemini, claude, etc)."
+    "Write a full conversation transcript as a new session file in active memory. "
+    "Accepts a batch of turns as JSON array with format: "
+    '[{"role": "user", "text": "..."}, {"role": "assistant", "text": "..."}]. '
+    "Each call creates a new .md transcript file. This is a manual-only tool: "
+    "only call it when the user explicitly asks to save/record the conversation. "
+    "stable_session_id is optional and auto-generated if omitted. "
+    "session_key should follow the pattern agent:main:{provider}:direct:{user_id} "
+    "where {provider} is the host platform (e.g. 'zed', 'whatsapp', 'cursor') "
+    "and NEVER an AI model name."
   )
 }
 
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../memory_scripts")))
-from memory_util.memory_transcript_store import load_active_memory_dir, load_session_registry, write_session_turn
+from memory_util.memory_transcript_store import load_active_memory_dir, load_session_registry, write_batch_session
 
 
 async def handler(
-  mode: str,
-  stable_session_id: str,
-  user_message: str,
-  assistant_message: str,
+  turns_json: str,
+  stable_session_id: str = None,
   session_key: str = None,
   source: str = None,
   timestamp_utc: str = None,
   parent_day: str = None
 ) -> str:
-  """Create or append to a session transcript using stable_session_id lookup."""
+  """Write a full conversation as a new session transcript file."""
   try:
+    # Parse turns_json
+    try:
+      turns = json.loads(turns_json)
+    except json.JSONDecodeError as error:
+      return json.dumps({
+        "status": "error",
+        "message": f"'turns_json' must be valid JSON: {str(error)}"
+      })
+
+    if not isinstance(turns, list):
+      return json.dumps({
+        "status": "error",
+        "message": "'turns_json' must decode into a JSON array of turn objects."
+      })
+
     memory_dir = load_active_memory_dir()
     os.makedirs(memory_dir, exist_ok=True)
     registry = load_session_registry(memory_dir)
-    result = write_session_turn(
+
+    result = write_batch_session(
       memory_dir=memory_dir,
       session_registry=registry,
+      turns=turns,
       stable_session_id=stable_session_id,
-      user_message=user_message,
-      assistant_message=assistant_message,
-      mode=mode,
       session_key=session_key,
       source=source,
       timestamp_utc=timestamp_utc,

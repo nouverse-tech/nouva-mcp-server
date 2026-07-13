@@ -70,8 +70,7 @@ nouva-mcp-server/
 │   │   │       ├── memory_analyze.py   # Tool: memory_analyze
 │   │   │       ├── memory_grep.py      # Tool: memory_grep
 │   │   │       ├── memory_read_file.py # Tool: memory_read_file
-│   │   │       ├── session_write.py    # Tool: session_write
-│   │   │       └── session_manage.py   # Tool: session_manage
+│   │   │       └── session_write.py    # Tool: session_write (batch transcript writer)
 │   │   ├── persona_engine/
 │   │   │   ├── README.md      # Persona setup and startup prompt integration
 │   │   │   ├── SKILL.md       # Agent guidance for persona loading

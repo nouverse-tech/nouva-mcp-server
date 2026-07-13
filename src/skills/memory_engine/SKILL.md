@@ -16,8 +16,7 @@ Use this skill for Nouva's 2-lane memory system:
 - `memory_analyze`: deterministic analytics executor over daily summaries. Structured input only; the agent must parse natural language before calling it.
 - `memory_grep`: search for a specific keyword or pattern inside all memory markdown files (active and/or archived).
 - `memory_read_file`: read the raw content of a specific memory markdown file using its relative path.
-- `session_write`: writes a session transcript into the memory workspace.
-- `session_manage`: manages slash-command style transcript controls such as auto on/off/status and full-session write.
+- `session_write`: write a full conversation transcript as a new session file. Manual-only; call only when the user explicitly asks to save/record the conversation.
 
 ## Routing Rules
 
@@ -41,7 +40,7 @@ Use these rules to keep analytics answers deterministic:
 - Use `memory_grep` when searching for exact strings, IDs, errors, or codes that might not yield good semantic matches in vector search.
 - Use `memory_read_file` to read the full content of a specific session transcript or daily summary once you have the exact relative path.
 - If `memory_query` only gives you a date or archive directory hint, use `memory_grep` first to locate the exact relative file path, then call `memory_read_file`.
-- Use `session_write` only when conversation history should be written into active memory. Do not log transcripts by default.
+- Use `session_write` only when the user explicitly asks to save or record a conversation. This is a manual-only tool — never call it automatically.
 
 ## `memory_analyze` Contract
 
@@ -82,39 +81,38 @@ Examples:
 
 ## `session_write` Notes
 
-- Use `mode="create"` exactly once on the first user turn of a new chat session.
-- Use `mode="append"` for all later turns in that same chat session.
-- Strict `session_key` pattern: `agent:main:{provider}:direct:{user_identifier_from_provider}`.
-  - **CRITICAL**: The `{provider}` field is the **host/app/platform** where the agent is running, NOT the AI model name.
-  - Allowed examples for `{provider}`: `zed`, `whatsapp`, `trae`, `claudecode`, `cursor`, `telegram`, `webchat`.
-  - NEVER use AI model names (e.g. do NOT use `gemini-3.5-flash`, `claude-sonnet`, `gpt-4o`) as the `{provider}`.
-  - Example of correct `session_key`: `agent:main:zed:direct:gadingnst` or `agent:main:whatsapp:direct:62812xxx`.
-- `stable_session_id` is required and should come from the host/agent session state. Do not let the tool generate or guess it.
-- Each write stores one raw transcript turn in archive-style format:
-  `user: ...`
-  `assistant: ...`
-- `create` requires `stable_session_id`, `user_message`, `assistant_message`, `session_key`, and `source`.
-- `append` requires `stable_session_id`, `user_message`, and `assistant_message`.
-- `append` resolves the target file strictly by the same `stable_session_id` through the active session registry.
-- Do not append by "latest transcript today" and do not treat `session_key` as a unique chat-session identifier.
-- `source` should identify the channel, such as `whatsapp`, `telegram`, `webchat`, or `trae`.
-- Policy guardrail: do not call `session_write` unless the user explicitly requested a `nouva-session` transcript command or the current session already has `auto_write_enabled=true`.
+- This is a **manual-only, batch** tool. It writes the entire conversation at once into a new `.md` file.
+- Only call this tool when the user explicitly asks to save, record, or log the conversation.
+- **Never** call this tool automatically or per-turn.
+- Input format for `turns_json`: a JSON array of turn objects:
+  ```json
+  [
+    {"role": "user", "text": "..."},
+    {"role": "assistant", "text": "..."},
+    {"role": "user", "text": "..."},
+    {"role": "assistant", "text": "..."}
+  ]
+  ```
+- `stable_session_id` is optional. If omitted, a UUID is auto-generated.
+- `session_key` pattern: `agent:main:{provider}:direct:{user_identifier}`.
+  - `{provider}` is the **host platform** (e.g. `zed`, `whatsapp`, `cursor`, `claudecode`), never an AI model name.
+- `source` identifies the platform (e.g. `zed`, `whatsapp`). Defaults to `unknown` if omitted.
+- `parent_day` is optional (`YYYY-MM-DD`). Defaults to today's UTC date.
+- Output file format:
+  ```
+  # Session: 2026-07-14 12:34:56 UTC
+  Parent Day: [[2026-07-14]]
 
-## `session_manage` Notes
+  - **Session Key**: agent:main:zed:direct:gadingnst
+  - **Session ID**: <uuid>
+  - **Source**: zed
 
-- Default transcript auto-write mode is off.
-- User-facing transcript commands should use the `nouva:` prefix family:
-  `/nouva-session-auto-on`, `/nouva-session-auto-off`, `/nouva-session-status`, `/nouva-session-write`.
-- If the agent sees one of those commands in the user message, it should route to `session_manage` instead of treating it as a normal chat request.
-- `/nouva-session-auto-on` enables auto-write for the current `stable_session_id`.
-- `/nouva-session-auto-off` disables auto-write for the current `stable_session_id`.
-- `/nouva-session-status` returns whether auto-write is currently enabled for the current `stable_session_id`.
-- `/nouva-session-write` writes or rewrites the full transcript for the current session using `turns_json`, which must contain the complete in-memory session turn list.
-- `turns_json` must decode into a JSON array of objects shaped like:
-  `{"user_message":"...","assistant_message":"..."}`
-- Agent behavior policy:
-  - If auto-write is off, do not call `session_write` unless the user explicitly uses `/nouva-session-*`.
-  - If auto-write is on, `session_write` may be called after each completed turn for the same `stable_session_id`.
+  user: <text>
+  assistant: <text>
+
+  user: <text>
+  assistant: <text>
+  ```
 
 ## Do / Don't
 
