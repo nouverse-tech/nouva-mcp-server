@@ -86,7 +86,11 @@ Examples:
 
 - Use `mode="create"` exactly once on the first user turn of a new chat session.
 - Use `mode="append"` for all later turns in that same chat session.
-- Preferred `session_key` pattern: `agent:main:{provider}:direct:{user_identifier_from_provider}`.
+- Strict `session_key` pattern: `agent:main:{provider}:direct:{user_identifier_from_provider}`.
+  - **CRITICAL**: The `{provider}` field is the **host/app/platform** where the agent is running, NOT the AI model name.
+  - Allowed examples for `{provider}`: `zed`, `whatsapp`, `trae`, `claudecode`, `cursor`, `telegram`, `webchat`.
+  - NEVER use AI model names (e.g. do NOT use `gemini-3.5-flash`, `claude-sonnet`, `gpt-4o`) as the `{provider}`.
+  - Example of correct `session_key`: `agent:main:zed:direct:gadingnst` or `agent:main:whatsapp:direct:62812xxx`.
 - `stable_session_id` is required and should come from the host/agent session state. Do not let the tool generate or guess it.
 - Each write stores one raw transcript turn in archive-style format:
   `user: ...`
