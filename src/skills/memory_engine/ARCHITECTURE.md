@@ -168,8 +168,8 @@ The policy model is intentionally conservative:
 Code references:
 
 - Shared transcript storage logic: [transcript_store.py](scripts/util/transcript_store.py)
-- Per-turn writer tool: [write_transcript.py](tools/write_transcript.py) (registers `session_write`)
-- Session command / full-session rewrite tool: [manage_transcript_session.py](tools/manage_transcript_session.py) (registers `session_manage`)
+- Per-turn writer tool: [session_write.py](tools/session_write.py) (registers `session_write`)
+- Session command / full-session rewrite tool: [session_manage.py](tools/session_manage.py) (registers `session_manage`)
 
 ### 3.4 Diagram: Active Transcript Write Path
 
@@ -208,7 +208,7 @@ The RAG retrieval path is intentionally hybrid:
 - Some pgvector hits can also be returned directly as semantic chunks when they come from non-index core docs such as `MEMORY.md`; date extraction is not the only output path.
 
 Entry point:
-- Tool wrapper: [query_memory.py](tools/query_memory.py)
+- Tool wrapper: [memory_query.py](tools/memory_query.py)
 - Script: [query_memory.py](scripts/query_memory.py)
 
 ### 4.1 Diagram: RAG Retrieval Tiers
@@ -252,7 +252,7 @@ Analytics queries should not be answered by semantic search. They are routed to 
 - The analytics contract now supports both base intents (`dates_for_value`, `top_values`, `mood_timeseries`, `mood_distribution_by_weekday`) and quick-win aggregate intents (`count_distinct_dates_for_value`, `count_by_period`, `grouped_top_values`, `average_importance`).
 
 Code reference:
-- Tool wrapper: [query_analyze.py](tools/query_analyze.py)
+- Tool wrapper: [memory_analyze.py](tools/memory_analyze.py)
 - Script: [query_analyze.py](scripts/query_analyze.py)
 
 ```mermaid
