@@ -96,22 +96,22 @@ Examples:
 - `append` resolves the target file strictly by the same `stable_session_id` through the active session registry.
 - Do not append by "latest transcript today" and do not treat `session_key` as a unique chat-session identifier.
 - `source` should identify the channel, such as `whatsapp`, `telegram`, `webchat`, or `trae`.
-- Policy guardrail: do not call `session_write` unless the user explicitly requested a `nouva-memory` transcript command or the current session already has `auto_write_enabled=true`.
+- Policy guardrail: do not call `session_write` unless the user explicitly requested a `nouva-session` transcript command or the current session already has `auto_write_enabled=true`.
 
 ## `session_manage` Notes
 
 - Default transcript auto-write mode is off.
 - User-facing transcript commands should use the `nouva:` prefix family:
-  `/nouva-memory-auto-on`, `/nouva-memory-auto-off`, `/nouva-memory-status`, `/nouva-memory-write-transcript`.
+  `/nouva-session-auto-on`, `/nouva-session-auto-off`, `/nouva-session-status`, `/nouva-session-write`.
 - If the agent sees one of those commands in the user message, it should route to `session_manage` instead of treating it as a normal chat request.
-- `/nouva-memory-auto-on` enables auto-write for the current `stable_session_id`.
-- `/nouva-memory-auto-off` disables auto-write for the current `stable_session_id`.
-- `/nouva-memory-status` returns whether auto-write is currently enabled for the current `stable_session_id`.
-- `/nouva-memory-write-transcript` writes or rewrites the full transcript for the current session using `turns_json`, which must contain the complete in-memory session turn list.
+- `/nouva-session-auto-on` enables auto-write for the current `stable_session_id`.
+- `/nouva-session-auto-off` disables auto-write for the current `stable_session_id`.
+- `/nouva-session-status` returns whether auto-write is currently enabled for the current `stable_session_id`.
+- `/nouva-session-write` writes or rewrites the full transcript for the current session using `turns_json`, which must contain the complete in-memory session turn list.
 - `turns_json` must decode into a JSON array of objects shaped like:
   `{"user_message":"...","assistant_message":"..."}`
 - Agent behavior policy:
-  - If auto-write is off, do not call `session_write` unless the user explicitly uses `/nouva-memory-*`.
+  - If auto-write is off, do not call `session_write` unless the user explicitly uses `/nouva-session-*`.
   - If auto-write is on, `session_write` may be called after each completed turn for the same `stable_session_id`.
 
 ## Do / Don't

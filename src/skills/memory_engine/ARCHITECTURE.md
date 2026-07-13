@@ -137,7 +137,7 @@ Raw transcript writing is now handled as a separate operational path from the sy
 There are two write modes:
 
 - **Per-turn write** via `session_write`: append one completed `user` / `assistant` exchange to the active transcript for a given `stable_session_id`.
-- **Full-session rewrite** via `session_manage` with `/nouva-memory-write-transcript`: rewrite the active transcript file from the complete in-memory turn list for the current session.
+- **Full-session rewrite** via `session_manage` with `/nouva-session-write`: rewrite the active transcript file from the complete in-memory turn list for the current session.
 
 Both modes share the same storage logic:
 
@@ -162,7 +162,7 @@ The write path maintains two lightweight registries in active memory:
 The policy model is intentionally conservative:
 
 - Default auto-write mode is **off**.
-- Transcript writes should only happen when the user explicitly triggers a `nouva-memory` command or when the current session has already enabled auto-write.
+- Transcript writes should only happen when the user explicitly triggers a `nouva-session` command or when the current session has already enabled auto-write.
 - This keeps raw transcripts opt-in, avoids noisy memory growth, and prevents accidental long-term logging of ordinary chat turns.
 
 Code references:
@@ -175,7 +175,7 @@ Code references:
 
 ```mermaid
 flowchart TD
-  U["User turn or /nouva-memory-*"] --> A["Agent / client routing"]
+  U["User turn or /nouva-session-*"] --> A["Agent / client routing"]
   A -->|per-turn write| WT["session_write"]
   A -->|session command| MT["session_manage"]
   MT -->|auto on/off| LS["_transcript_logging_state.json"]

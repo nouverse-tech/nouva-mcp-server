@@ -11,7 +11,7 @@ metadata = {
     "same stable_session_id. The tool stores an active registry so append never guesses "
     "by latest file. Each write stores a raw transcript turn using 'user:' and "
     "'assistant:' blocks. Default auto-write mode is off: do not call this tool unless "
-    "the user explicitly requested a nouva-memory transcript command or the current "
+    "the user explicitly requested a nouva-session transcript command or the current "
     "session has already enabled auto-write. session_key should follow "
     "agent:main:{provider}:direct:{user_identifier_from_provider}."
   )
