@@ -274,9 +274,15 @@ Then connect using:
 ### Do you need additional editor guidelines?
 
 Connecting to the MCP server is enough for tool discovery. For best results, add a short routing rule in your agent instructions:
-- Use `mcp_query_analytics` for aggregation/time-series questions, but call it with structured arguments only after the agent parses the user's natural-language request. The analytics contract supports date lists, top values, weekday distributions, distinct-date counts, counts by period, grouped top values, and average importance.
-- Use `mcp_query_memory` for detailed recall and context.
-- Use `mcp_get_persona_prompt` only at new-session bootstrap time when a persona is explicitly selected or a default persona is configured.
+- Use `memory_analytics` for aggregation/time-series questions, but call it with structured arguments only after the agent parses the user's natural-language request. The analytics contract supports date lists, top values, weekday distributions, distinct-date counts, counts by period, grouped top values, and average importance.
+- Use `memory_query` for detailed recall and context.
+- Use `persona_get_prompt` only at new-session bootstrap time when a persona is explicitly selected or a default persona is configured.
+
+---
+
+## License
+
+This project is licensed under the **GNU Affero General Public License v3 (AGPL-3.0)**. See the [LICENSE](LICENSE) file for the full license text.
 
 ---
 
