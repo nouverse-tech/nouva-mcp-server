@@ -13,7 +13,7 @@ Use this skill for Nouva's 2-lane memory system:
 
 ## Tools
 - `memory_query`: semantic recall tool. Returns the best matching summaries and archive path pointers for follow-up. Use for recall/context only, not for counts, ranking, aggregation, or trend analysis.
-- `memory_analytics`: deterministic analytics executor over daily summaries. Structured input only; the agent must parse natural language before calling it.
+- `memory_analyze`: deterministic analytics executor over daily summaries. Structured input only; the agent must parse natural language before calling it.
 - `memory_grep`: search for a specific keyword or pattern inside all memory markdown files (active and/or archived).
 - `memory_read_file`: read the raw content of a specific memory markdown file using its relative path.
 - `session_write`: writes a session transcript into the memory workspace.
@@ -23,27 +23,27 @@ Use this skill for Nouva's 2-lane memory system:
 
 Use these rules to keep analytics answers deterministic:
 
-- Use `memory_analytics` for questions that require aggregation/time-series:
+- Use `memory_analyze` for questions that require aggregation/time-series:
   - "which days / when / how many times"
   - "pattern / trend"
   - "every <weekday>"
   - "last 2 weeks / last month"
   - "what did I talk about most"
-- Prefer `memory_analytics` whenever the user asks for counts, top values, averages, distributions, grouped results, weekday patterns, or date aggregation.
-- Before calling `memory_analytics`, convert the user's question into explicit structured arguments.
-- Never send raw natural-language questions to `memory_analytics`.
+- Prefer `memory_analyze` whenever the user asks for counts, top values, averages, distributions, grouped results, weekday patterns, or date aggregation.
+- Before calling `memory_analyze`, convert the user's question into explicit structured arguments.
+- Never send raw natural-language questions to `memory_analyze`.
 - Use `memory_query` for detail/context recall:
   - "explain the details from that time"
   - "why / what decision / what plan"
   - "find the conversation that discussed ..."
 - Do not use `memory_query` to answer counts, top values, averages, trends, distributions, or grouped/date-based analytics.
-- For mixed questions, run `memory_analytics` first to identify candidate dates or periods, then run `memory_query` only if the user also wants detailed context.
+- For mixed questions, run `memory_analyze` first to identify candidate dates or periods, then run `memory_query` only if the user also wants detailed context.
 - Use `memory_grep` when searching for exact strings, IDs, errors, or codes that might not yield good semantic matches in vector search.
 - Use `memory_read_file` to read the full content of a specific session transcript or daily summary once you have the exact relative path.
 - If `memory_query` only gives you a date or archive directory hint, use `memory_grep` first to locate the exact relative file path, then call `memory_read_file`.
 - Use `session_write` only when conversation history should be written into active memory. Do not log transcripts by default.
 
-## `memory_analytics` Contract
+## `memory_analyze` Contract
 
 This tool accepts structured arguments only and is designed as an executor, not a natural-language parser.
 
@@ -119,10 +119,10 @@ Examples:
 ## Do / Don't
 
 - Do use `memory_query` for recall and context reconstruction.
-- Do use `memory_analytics` for counts, trends, distributions, and date aggregation.
-- Do convert natural language into structured analytics arguments before calling `memory_analytics`.
+- Do use `memory_analyze` for counts, trends, distributions, and date aggregation.
+- Do convert natural language into structured analytics arguments before calling `memory_analyze`.
 - Do run analytics first for mixed questions that combine aggregation with detail recall.
 - Don't use `memory_query` to answer aggregation questions.
-- Don't send free-form natural language directly to `memory_analytics`.
+- Don't send free-form natural language directly to `memory_analyze`.
 - Don't run sync unless the task explicitly needs memory maintenance or ingestion.
 - Don't write transcripts unless persistent logging is actually required.
