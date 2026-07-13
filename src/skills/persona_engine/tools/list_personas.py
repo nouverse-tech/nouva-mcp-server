@@ -3,7 +3,7 @@ import os
 import sys
 
 metadata = {
-  "name": "mcp_list_personas",
+  "name": "persona_list",
   "description": (
     "List persona folders from the personas directory and report whether each persona "
     "is structurally valid. Returns JSON with the configured default persona and a "
