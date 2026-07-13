@@ -96,7 +96,7 @@ Current retrieval-related settings are nested under `retrieval` instead of legac
 
 If you are setting up the database for the first time:
 ```bash
-python3 src/skills/memory_engine/scripts/db/init_db.py
+python3 src/skills/memory_engine/memory_scripts/memory_db/memory_init_db.py
 ```
 This script will enable the `vector` extension and create the `memory_vectors` table with an HNSW index.
 
@@ -113,7 +113,7 @@ The auto-sync script runs periodically (recommended: daily via cron) to keep bot
 - Archive daily logs and summaries to NAS.
 
 ```bash
-python3 src/skills/memory_engine/scripts/auto_sync.py
+python3 src/skills/memory_engine/memory_scripts/memory_auto_sync.py
 ```
 
 ---

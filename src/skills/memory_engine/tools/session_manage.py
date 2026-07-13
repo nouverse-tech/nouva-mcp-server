@@ -16,8 +16,8 @@ metadata = {
 }
 
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../scripts")))
-from util.transcript_store import (
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../memory_scripts")))
+from memory_util.memory_transcript_store import (
   get_auto_write_state,
   load_active_memory_dir,
   load_session_registry,

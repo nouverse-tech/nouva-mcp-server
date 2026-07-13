@@ -13,7 +13,7 @@ async def handler(query: str) -> str:
     Args:
         query: The search query (e.g. 'macbook air m1 specs', 'when is Gading's anniversary')
     """
-    script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "scripts", "query_memory.py"))
+    script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "memory_scripts", "memory_query_context.py"))
     
     try:
         res = subprocess.run(
