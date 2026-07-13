@@ -6,11 +6,11 @@ metadata = {
   "name": "session_manage",
   "description": (
     "Handle transcript logging commands for one chat session. Supported commands map to "
-    "slash commands such as /nouva-memory-auto-on, /nouva-memory-auto-off, "
-    "/nouva-memory-status, and /nouva-memory-write-transcript. The write command "
+    "slash commands such as /nouva-session-auto-on, /nouva-session-auto-off, "
+    "/nouva-session-status, and /nouva-session-write. The write command "
     "accepts a full session transcript snapshot as JSON and writes or rewrites the "
     "session file in raw 'user:'/'assistant:' format. Default auto-write mode is off. "
-    "Use this tool to route explicit nouva-memory commands and to decide whether "
+    "Use this tool to route explicit nouva-session commands and to decide whether "
     "per-turn transcript writes should remain disabled or enabled for the session."
   )
 }
@@ -28,10 +28,10 @@ from util.transcript_store import (
 
 
 SUPPORTED_COMMANDS = {
-  "nouva-memory-auto-on",
-  "nouva-memory-auto-off",
-  "nouva-memory-status",
-  "nouva-memory-write-transcript",
+  "nouva-session-auto-on",
+  "nouva-session-auto-off",
+  "nouva-session-status",
+  "nouva-session-write",
 }
 
 
@@ -71,15 +71,15 @@ async def handler(
       return json.dumps({
         "status": "error",
         "message": (
-          "Unsupported command. Use one of: /nouva-memory-auto-on, "
-          "/nouva-memory-auto-off, /nouva-memory-status, /nouva-memory-write-transcript."
+          "Unsupported command. Use one of: /nouva-session-auto-on, "
+          "/nouva-session-auto-off, /nouva-session-status, /nouva-session-write."
         )
       })
 
     memory_dir = load_active_memory_dir()
     os.makedirs(memory_dir, exist_ok=True)
 
-    if normalized_command == "nouva-memory-auto-on":
+    if normalized_command == "nouva-session-auto-on":
       state = set_auto_write_state(
         memory_dir=memory_dir,
         stable_session_id=stable_session_id,
@@ -94,7 +94,7 @@ async def handler(
         **state
       })
 
-    if normalized_command == "nouva-memory-auto-off":
+    if normalized_command == "nouva-session-auto-off":
       state = set_auto_write_state(
         memory_dir=memory_dir,
         stable_session_id=stable_session_id,
@@ -109,7 +109,7 @@ async def handler(
         **state
       })
 
-    if normalized_command == "nouva-memory-status":
+    if normalized_command == "nouva-session-status":
       state = get_auto_write_state(memory_dir, stable_session_id)
       return json.dumps({
         "status": "ok",
