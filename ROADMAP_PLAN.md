@@ -24,7 +24,7 @@ Migrate the MCP server foundation from TypeScript to Python and verify local int
 - [x] Project setup: requirements and folder structure.
 - [x] Core skill: `system_status` (Python).
 - [x] Core skill: `run_safe_command` (Python).
-- [x] Skill: MCP management scaffolding (`mcp_create_skill`).
+- [x] Skill: MCP management scaffolding (`skill_create`).
 - [x] Skill: `memory_engine` (Python).
 - [x] Integration verification: connect MCP server to OpenClaw locally.
 
