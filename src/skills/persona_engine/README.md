@@ -125,10 +125,10 @@ If the folder does not exist or any required file is missing, startup validation
 
 `persona_engine` currently exposes two tools:
 
-- `mcp_list_personas`: list persona folders and show whether they are structurally valid
-- `mcp_get_persona_prompt`: validate a persona and return the combined startup prompt
+- `persona_list`: list persona folders and show whether they are structurally valid
+- `persona_get_prompt`: validate a persona and return the combined startup prompt
 
-### `mcp_list_personas`
+### `persona_list`
 
 Use this tool when the client or agent wants deterministic visibility into available persona folders before startup.
 
@@ -146,7 +146,7 @@ Each persona entry includes:
 - `is_valid`
 - `missing_files`
 
-### `mcp_get_persona_prompt`
+### `persona_get_prompt`
 
 Use this tool when a persona should actually be loaded into a new chat session.
 
@@ -179,7 +179,7 @@ Recommended flow:
 
 1. Client starts or connects to the MCP server
 2. Client knows whether `--default-persona=<name>` is enabled
-3. At the beginning of a new chat session, client calls `mcp_get_persona_prompt`
+3. At the beginning of a new chat session, client calls `persona_get_prompt`
 4. Client inserts the returned `prompt` near the beginning of the session bootstrap/system prompt
 5. Regular user turns begin after that
 
@@ -190,7 +190,7 @@ If no default persona is configured, persona mode should remain off unless the c
 The server validates persona startup in two places:
 
 - During MCP server startup, `--default-persona=<name>` is checked against the local `personas/` directory.
-- During tool use, `mcp_get_persona_prompt` validates the selected folder again before returning prompt text.
+- During tool use, `persona_get_prompt` validates the selected folder again before returning prompt text.
 
 Validation fails when:
 
@@ -209,7 +209,7 @@ At MCP server startup, valid persona folders are registered as read-only metadat
 - `metadata://personas/<persona_name>/soul`
 - `metadata://personas/<persona_name>/user`
 
-This means clients can inspect the raw markdown resources directly, while `mcp_get_persona_prompt` provides the assembled bootstrap prompt.
+This means clients can inspect the raw markdown resources directly, while `persona_get_prompt` provides the assembled bootstrap prompt.
 
 ## Design Notes
 
