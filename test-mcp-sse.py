@@ -13,7 +13,7 @@ async def test_mcp():
         async def read_sse():
             session_id = None
             message_url = None
-            
+
             async with client.stream("GET", f"{SERVER_URL}/sse") as response:
                 async for line in response.aiter_lines():
                     if line.startswith("data:"):
@@ -33,10 +33,10 @@ async def test_mcp():
                                 pass
 
         sse_gen = read_sse()
-        
+
         # Get connection info
         event_type, message_url = await sse_gen.__anext__()
-        
+
         # 2. Send Initialize Request
         print("🔄 Sending 'initialize' request...")
         init_payload = {
@@ -53,12 +53,12 @@ async def test_mcp():
         if res.status_code != 202:
             print(f"❌ Initialize POST failed: {res.status_code}")
             return
-            
+
         # Wait for initialize response on SSE stream
         event_type, init_response = await sse_gen.__anext__()
         print("✅ Received initialize response:")
         print(json.dumps(init_response, indent=2))
-        
+
         # 3. Send Initialized Notification
         print("🔄 Sending 'notifications/initialized'...")
         initialized_payload = {
@@ -66,26 +66,26 @@ async def test_mcp():
             "method": "notifications/initialized"
         }
         await client.post(message_url, json=initialized_payload)
-        
-        # 4. Call mcp_query_memory Tool
+
+        # 4. Call memory_query Tool
         query = "RTX 5060"
         if len(sys.argv) > 1:
             query = sys.argv[1]
-            
-        print(f"🔍 Calling 'mcp_query_memory' with query: '{query}'...")
+
+        print(f"🔍 Calling 'memory_query' with query: '{query}'...")
         call_payload = {
             "jsonrpc": "2.0",
             "id": 2,
             "method": "tools/call",
             "params": {
-                "name": "mcp_query_memory",
+                "name": "memory_query",
                 "arguments": {
                     "query": query
                 }
             }
         }
         await client.post(message_url, json=call_payload)
-        
+
         # Wait for tool response on SSE stream
         event_type, tool_response = await sse_gen.__anext__()
         print("\n=== TOOL RESPONSE ===")

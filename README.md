@@ -75,12 +75,12 @@ nouva-mcp-server/
 │   │   │   │   └── util/
 │   │   │   │       └── persona_loader.py # Persona validation and prompt assembly
 │   │   │   └── tools/
-│   │   │       ├── list_personas.py # Tool: mcp_list_personas
-│   │   │       └── get_persona_prompt.py # Tool: mcp_get_persona_prompt
+│   │   │       ├── list_personas.py # Tool: persona_list
+│   │   │       └── get_persona_prompt.py # Tool: persona_get_prompt
 │   │   ├── mcp_management/
 │   │   │   ├── SKILL.md       # Scaffolding guidelines (Resource)
 │   │   │   └── tools/
-│   │   │       └── create_skill.py # Tool: mcp_create_skill
+│   │   │       └── create_skill.py # Tool: skill_create
 │   └── utils/
 ├── personas/                  # Private persona folders + public example template
 ├── requirements.txt           # Python dependencies
