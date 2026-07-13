@@ -1,7 +1,7 @@
 import os
 
 metadata = {
-    "name": "mcp_grep_memory",
+    "name": "memory_grep",
     "description": "Search for a specific keyword or pattern inside all memory markdown files (active and/or archived)."
 }
 

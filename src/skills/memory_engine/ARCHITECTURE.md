@@ -136,8 +136,8 @@ Raw transcript writing is now handled as a separate operational path from the sy
 
 There are two write modes:
 
-- **Per-turn write** via `mcp_write_transcript`: append one completed `user` / `assistant` exchange to the active transcript for a given `stable_session_id`.
-- **Full-session rewrite** via `mcp_manage_transcript_session` with `/nouva-memory-write-transcript`: rewrite the active transcript file from the complete in-memory turn list for the current session.
+- **Per-turn write** via `session_write`: append one completed `user` / `assistant` exchange to the active transcript for a given `stable_session_id`.
+- **Full-session rewrite** via `session_manage` with `/nouva-memory-write-transcript`: rewrite the active transcript file from the complete in-memory turn list for the current session.
 
 Both modes share the same storage logic:
 
@@ -168,16 +168,16 @@ The policy model is intentionally conservative:
 Code references:
 
 - Shared transcript storage logic: [transcript_store.py](scripts/util/transcript_store.py)
-- Per-turn writer tool: [write_transcript.py](tools/write_transcript.py)
-- Session command / full-session rewrite tool: [manage_transcript_session.py](tools/manage_transcript_session.py)
+- Per-turn writer tool: [write_transcript.py](tools/write_transcript.py) (registers `session_write`)
+- Session command / full-session rewrite tool: [manage_transcript_session.py](tools/manage_transcript_session.py) (registers `session_manage`)
 
 ### 3.4 Diagram: Active Transcript Write Path
 
 ```mermaid
 flowchart TD
   U["User turn or /nouva-memory-*"] --> A["Agent / client routing"]
-  A -->|per-turn write| WT["mcp_write_transcript"]
-  A -->|session command| MT["mcp_manage_transcript_session"]
+  A -->|per-turn write| WT["session_write"]
+  A -->|session command| MT["session_manage"]
   MT -->|auto on/off| LS["_transcript_logging_state.json"]
   MT -->|full-session rewrite| TS["transcript_store.py"]
   WT --> TS

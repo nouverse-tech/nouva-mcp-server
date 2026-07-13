@@ -3,7 +3,7 @@ import re
 from pathlib import Path
 
 metadata = {
-    "name": "mcp_create_skill",
+    "name": "skill_create",
     "description": "Create a new modular skill directory structure along with boilerplate SKILL.md and Python tools"
 }
 

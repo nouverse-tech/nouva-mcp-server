@@ -3,7 +3,7 @@ import os
 import sys
 
 metadata = {
-  "name": "mcp_manage_transcript_session",
+  "name": "session_manage",
   "description": (
     "Handle transcript logging commands for one chat session. Supported commands map to "
     "slash commands such as /nouva-memory-auto-on, /nouva-memory-auto-off, "
