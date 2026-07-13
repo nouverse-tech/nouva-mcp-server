@@ -6,6 +6,9 @@ import datetime
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+# Configuration Constants
+SYNC_LIMIT_DAYS = 1  # Number of days to keep locally before archiving to NAS (e.g. 1 = H-1, 2 = H-2)
+
 
 def cleanup_local_rina_mentions(memory_dir: str) -> None:
     """Normalize 'Rina' → 'Kak Rina' in all local markdown files."""
@@ -130,7 +133,7 @@ def sync_memory_logs(active_memory_dir: str, nas) -> None:
     except Exception:
         last_synced_date = datetime.date(1970, 1, 1)
 
-    limit = datetime.date.today() - datetime.timedelta(days=2)
+    limit = datetime.date.today() - datetime.timedelta(days=SYNC_LIMIT_DAYS)
     memory_dir = active_memory_dir
 
     if not os.path.exists(memory_dir):
