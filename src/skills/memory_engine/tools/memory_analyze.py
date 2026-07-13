@@ -4,7 +4,7 @@ import subprocess
 import json
 
 metadata = {
-    "name": "memory_analytics",
+    "name": "memory_analyze",
     "description": (
         "Run deterministic analytics over daily summaries using STRUCTURED INPUT ONLY. "
         "Do not pass natural-language questions. Supported intents: dates_for_value, "
@@ -47,7 +47,7 @@ async def handler(
     - {"intent":"count_by_period","column":"projects","value":"Nouverse","period":"month"}
     - {"intent":"grouped_top_values","column":"tags","period":"month","start_date":"2025-01-01","end_date":"2025-06-30","limit":5}
     """
-    script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "scripts", "query_analytics.py"))
+    script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "memory_scripts", "query_analyze.py"))
     payload = {
         "intent": intent,
         "column": column,

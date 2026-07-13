@@ -20,8 +20,8 @@ metadata = {
 }
 
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../scripts")))
-from util.transcript_store import load_active_memory_dir, load_session_registry, write_session_turn
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../memory_scripts")))
+from memory_util.memory_transcript_store import load_active_memory_dir, load_session_registry, write_session_turn
 
 
 async def handler(

@@ -14,13 +14,13 @@ import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from util.load_config import load_memory_config, resolve_paths
-from util.nas_helper import NasHelper
-from sync.summary_sync import reconcile_missing_summaries, generate_memory_index
-from sync.analytics_sync import sync_daily_summaries_to_db
-from sync.memory_sync import cleanup_local_rina_mentions, sync_memory_logs
-from sync.vector_sync import sync_vector_files
-from sync.openclaw_sync import WORKSPACE_ROOT, sync_core_files_to_nas
+from memory_util.memory_load_config import load_memory_config, resolve_paths
+from memory_util.memory_nas_helper import NasHelper
+from memory_sync.memory_summary_sync import reconcile_missing_summaries, generate_memory_index
+from memory_sync.memory_analytics_sync import sync_daily_summaries_to_db
+from memory_sync.memory_sync import cleanup_local_rina_mentions, sync_memory_logs
+from memory_sync.memory_vector_sync import sync_vector_files
+from memory_sync.memory_openclaw_sync import WORKSPACE_ROOT, sync_core_files_to_nas
 
 CORE_FILES = [
     "MEMORY.md",

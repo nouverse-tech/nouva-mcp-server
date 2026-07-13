@@ -53,21 +53,25 @@ nouva-mcp-server/
 │   │   │   ├── README.md      # Setup and operational notes for memory_engine
 │   │   │   ├── SKILL.md       # Agent routing guidance for memory tools
 │   │   │   ├── memory_config.example.json # Template config for memory variables
-│   │   │   ├── scripts/
-│   │   │   │   ├── auto_sync.py         # Memory auto-sync cron script
-│   │   │   │   ├── query_memory.py      # Hybrid search query engine
-│   │   │   │   ├── query_analytics.py   # Deterministic structured analytics executor
-│   │   │   │   ├── db/                  # DB helpers and init scripts
-│   │   │   │   │   ├── init_db.py
-│   │   │   │   │   ├── db_helper.py
-│   │   │   │   │   └── analytics_repo.py
-│   │   │   │   └── sync/
-│   │   │   │       ├── summary_sync.py
-│   │   │   │       └── analytics_sync.py
+│   │   │   ├── memory_scripts/
+│   │   │   │   ├── memory_auto_sync.py         # Memory auto-sync cron script
+│   │   │   │   ├── memory_query_context.py      # Hybrid search query engine
+│   │   │   │   ├── memory_query_analyze.py     # Deterministic structured analytics executor
+│   │   │   │   ├── memory_db/                  # DB helpers and init scripts
+│   │   │   │   │   ├── memory_init_db.py
+│   │   │   │   │   ├── memory_db_helper.py
+│   │   │   │   │   └── memory_analytics_repo.py
+│   │   │   │   └── memory_sync/
+│   │   │   │       ├── memory_summary_sync.py
+│   │   │   │       ├── memory_sync.py
+│   │   │   │       └── memory_analytics_sync.py
 │   │   │   └── tools/
-│   │   │       ├── query_memory.py # Tool: query_memory
-│   │   │       ├── query_analytics.py # Tool: structured analytics executor
-│   │   │       └── sync_memory.py  # Tool: sync_memory
+│   │   │       ├── memory_query.py     # Tool: memory_query
+│   │   │       ├── memory_analyze.py   # Tool: memory_analyze
+│   │   │       ├── memory_grep.py      # Tool: memory_grep
+│   │   │       ├── memory_read_file.py # Tool: memory_read_file
+│   │   │       ├── session_write.py    # Tool: session_write
+│   │   │       └── session_manage.py   # Tool: session_manage
 │   │   ├── persona_engine/
 │   │   │   ├── README.md      # Persona setup and startup prompt integration
 │   │   │   ├── SKILL.md       # Agent guidance for persona loading
@@ -75,12 +79,12 @@ nouva-mcp-server/
 │   │   │   │   └── util/
 │   │   │   │       └── persona_loader.py # Persona validation and prompt assembly
 │   │   │   └── tools/
-│   │   │       ├── list_personas.py # Tool: mcp_list_personas
-│   │   │       └── get_persona_prompt.py # Tool: mcp_get_persona_prompt
+│   │   │       ├── persona_list.py     # Tool: persona_list
+│   │   │       └── persona_get_prompt.py # Tool: persona_get_prompt
 │   │   ├── mcp_management/
 │   │   │   ├── SKILL.md       # Scaffolding guidelines (Resource)
 │   │   │   └── tools/
-│   │   │       └── create_skill.py # Tool: mcp_create_skill
+│   │   │       └── skill_create.py     # Tool: skill_create
 │   └── utils/
 ├── personas/                  # Private persona folders + public example template
 ├── requirements.txt           # Python dependencies
@@ -168,7 +172,7 @@ We provide a development configuration that spins up both the **PostgreSQL (with
 3. Initialize the development database:
    Run the initialization script inside the container (or locally if you have python dependencies installed):
    ```bash
-   docker exec -it nouva-mcp-server-dev python3 src/skills/memory_engine/scripts/db/init_db.py
+   docker exec -it nouva-mcp-server-dev python3 src/skills/memory_engine/memory_scripts/memory_db/memory_init_db.py
    ```
 
 ---
@@ -274,7 +278,7 @@ Then connect using:
 ### Do you need additional editor guidelines?
 
 Connecting to the MCP server is enough for tool discovery. For best results, add a short routing rule in your agent instructions:
-- Use `memory_analytics` for aggregation/time-series questions, but call it with structured arguments only after the agent parses the user's natural-language request. The analytics contract supports date lists, top values, weekday distributions, distinct-date counts, counts by period, grouped top values, and average importance.
+- Use `memory_analyze` for aggregation/time-series questions, but call it with structured arguments only after the agent parses the user's natural-language request. The analytics contract supports date lists, top values, weekday distributions, distinct-date counts, counts by period, grouped top values, and average importance.
 - Use `memory_query` for detailed recall and context.
 - Use `persona_get_prompt` only at new-session bootstrap time when a persona is explicitly selected or a default persona is configured.
 

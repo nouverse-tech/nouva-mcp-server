@@ -5,10 +5,10 @@ import datetime
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from db import db_helper
-from util.load_config import load_memory_config
-from sync.analytics_sync import load_daily_summaries_from_files
-from db.analytics_repo import (
+from memory_db import memory_db_helper as db_helper
+from memory_util.memory_load_config import load_memory_config
+from memory_sync.memory_analytics_sync import load_daily_summaries_from_files
+from memory_db.memory_analytics_repo import (
     ensure_schema,
     get_dates_for_array_value,
     get_grouped_top_values,
@@ -472,7 +472,7 @@ def _execute_query_files(request: dict, config: dict) -> str | None:
     return None
 
 
-def query_analytics(request: dict) -> str:
+def query_analyze(request: dict) -> str:
     """Run a structured analytics request against the analytics lane."""
     try:
         normalized = _validate_request(request)
@@ -505,7 +505,7 @@ def query_analytics(request: dict) -> str:
 def main():
     """CLI entrypoint for structured analytics execution."""
     if len(sys.argv) != 2:
-        print(f"Usage: python3 query_analytics.py '<json_object>'\n{_SCHEMA_HELP}")
+        print(f"Usage: python3 query_analyze.py '<json_object>'\n{_SCHEMA_HELP}")
         sys.exit(1)
 
     try:
@@ -514,7 +514,7 @@ def main():
         print(f"Invalid analytics JSON payload: {exc}\n{_SCHEMA_HELP}")
         sys.exit(1)
 
-    print(query_analytics(request))
+    print(query_analyze(request))
 
 
 if __name__ == "__main__":

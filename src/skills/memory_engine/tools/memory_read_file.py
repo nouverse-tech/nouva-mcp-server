@@ -6,8 +6,8 @@ metadata = {
 }
 
 import sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../scripts")))
-from util.load_config import load_memory_config, resolve_paths
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../memory_scripts")))
+from memory_util.memory_load_config import load_memory_config, resolve_paths
 
 def load_paths():
     config = load_memory_config()

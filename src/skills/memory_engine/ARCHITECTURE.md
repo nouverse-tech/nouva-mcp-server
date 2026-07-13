@@ -31,8 +31,8 @@ Daily summaries are the "junction format": they power both analytics and the mem
 - Query method: cosine distance search via raw SQL
 
 Code references:
-- Vector table schema: [init_db.py](scripts/db/init_db.py)
-- Vector search implementation: [db_helper.py](scripts/db/db_helper.py)
+- Vector table schema: [memory_init_db.py](memory_scripts/memory_db/memory_init_db.py)
+- Vector search implementation: [memory_db_helper.py](memory_scripts/memory_db/memory_db_helper.py)
 
 #### B. Deterministic Analytics (Postgres SQL)
 
@@ -41,8 +41,8 @@ Code references:
 - Query method: pure SQL aggregations, with GIN indexes over arrays
 
 Code references:
-- Analytics schema + queries: [analytics_repo.py](scripts/db/analytics_repo.py)
-- Sync `.summary.md` → `daily_summaries`: [analytics_sync.py](scripts/sync/analytics_sync.py)
+- Analytics schema + queries: [memory_analytics_repo.py](memory_scripts/memory_db/memory_analytics_repo.py)
+- Sync `.summary.md` → `daily_summaries`: [memory_analytics_sync.py](memory_scripts/memory_sync/memory_analytics_sync.py)
 
 ---
 
@@ -76,7 +76,7 @@ flowchart TD
  end
 
  subgraph AnalyticsLane [Analytics Lane]
- AGENT --> |Structured Args| QA[query_analytics.py]
+ AGENT --> |Structured Args| QA[query_analyze.py]
  QA --> |Query SQL| SQL[(Postgres SQL: daily_summaries)]
   SQL --> |Deterministic Results| AGENT
   QA --> |Fallback if DB unavailable| FILES[File-backed summaries]
@@ -102,19 +102,19 @@ flowchart TD
 
 The sync process is orchestrated by `auto_sync.py` and is designed to be incremental and idempotent:
 
-- `sync-state.json` is used to drive incremental archival for daily sessions.
+- `memory_sync-state.json` is used to drive incremental archival for daily sessions.
 - Summaries are reconciled/created before archival, so the summary layer stays available even after local raw files are cleaned.
 - The summary layer feeds two different downstream products: `daily_summaries` rows for deterministic analytics, and `MEMORY_INDEX.md` for semantic date recall in pgvector.
 - The pgvector lane receives core docs such as `MEMORY_INDEX.md`, `MEMORY.md`, `USER.md`, and related files, not raw `.summary.md` files directly.
 
 Code reference:
-- Orchestrator: [auto_sync.py](scripts/auto_sync.py)
+- Orchestrator: [memory_auto_sync.py](memory_scripts/memory_auto_sync.py)
 
 ### 3.1 Diagram: Sync Steps (High Level)
 
 ```mermaid
 flowchart TD
-  CRON["cron / manual run"] --> AS["auto_sync.py"]
+  CRON["cron / manual run"] --> AS["memory_auto_sync.py"]
 
   AS --> S1["reconcile_missing_summaries()\nensure summaries exist"]
   S1 --> S1b["inject_related_dates()\npgvector-assisted linking\n+ ensure entity stubs on NAS"]
@@ -122,13 +122,13 @@ flowchart TD
   S2 --> S3["sync_daily_summaries_to_db()\n.summary.md -> daily_summaries"]
   S3 --> S4["generate_memory_index()\n_summaries -> MEMORY_INDEX.md"]
   S4 --> S5["sync_core_files()\nMEMORY_INDEX.md + core docs -> pgvector"]
-  S5 --> S6["sync_memory_logs()\narchive daily notes + raw + summaries\n(sync-state.json; delete local)"]
+  S5 --> S6["sync_memory_logs()\narchive daily notes + raw + summaries\n(memory_sync-state.json; delete local)"]
   S6 --> S7["sync_core_files_to_nas()"]
 ```
 
 ### 3.2 Note on LLM Usage
 
-Summary generation uses a configurable LLM endpoint/model from `memory_config.json` via [summary_sync.py](scripts/sync/summary_sync.py). `llm.timeout_seconds` is configurable, while `temperature` currently falls back to the script default when omitted from config. If summaries already exist (pre-generated), the rest of the pipeline still works without calling an LLM.
+Summary generation uses a configurable LLM endpoint/model from `memory_config.json` via [memory_summary_sync.py](memory_scripts/memory_sync/memory_summary_sync.py). `llm.timeout_seconds` is configurable, while `temperature` currently falls back to the script default when omitted from config. If summaries already exist (pre-generated), the rest of the pipeline still works without calling an LLM.
 
 ### 3.3 Transcript Write Mechanism
 
@@ -167,9 +167,9 @@ The policy model is intentionally conservative:
 
 Code references:
 
-- Shared transcript storage logic: [transcript_store.py](scripts/util/transcript_store.py)
-- Per-turn writer tool: [write_transcript.py](tools/write_transcript.py) (registers `session_write`)
-- Session command / full-session rewrite tool: [manage_transcript_session.py](tools/manage_transcript_session.py) (registers `session_manage`)
+- Shared transcript storage logic: [memory_transcript_store.py](memory_scripts/memory_util/memory_transcript_store.py)
+- Per-turn writer tool: [session_write.py](tools/session_write.py) (registers `session_write`)
+- Session command / full-session rewrite tool: [session_manage.py](tools/session_manage.py) (registers `session_manage`)
 
 ### 3.4 Diagram: Active Transcript Write Path
 
@@ -208,14 +208,14 @@ The RAG retrieval path is intentionally hybrid:
 - Some pgvector hits can also be returned directly as semantic chunks when they come from non-index core docs such as `MEMORY.md`; date extraction is not the only output path.
 
 Entry point:
-- Tool wrapper: [query_memory.py](tools/query_memory.py)
-- Script: [query_memory.py](scripts/query_memory.py)
+- Tool wrapper: [memory_query.py](tools/memory_query.py)
+- Script: [memory_query_context.py](memory_scripts/memory_query_context.py)
 
 ### 4.1 Diagram: RAG Retrieval Tiers
 
 ```mermaid
 flowchart TD
-  U["User query"] --> QM["query_memory.py"]
+  U["User query"] --> QM["memory_query_context.py"]
 
   subgraph RAG["Two-Tier Hybrid RAG Pipeline"]
     QM --> V["Tier A: pgvector search (memory_vectors)\nreturns chunks from core docs"]
@@ -234,17 +234,17 @@ flowchart TD
   RC --> OUT
 ```
 
-In implementation terms, Tier 3 is not performed by `query_memory.py` itself. The script returns summaries and archive path pointers; a higher-level agent may choose to read the raw archived files afterward if more detail is needed.
+In implementation terms, Tier 3 is not performed by `memory_query_context.py` itself. The script returns summaries and archive path pointers; a higher-level agent may choose to read the raw archived files afterward if more detail is needed.
 
 ---
 
-## 5. Analytics Flow (query_analytics.py)
+## 5. Analytics Flow (query_analyze.py)
 
 *(This section details the **Analytics Lane** shown in the End-to-End Architecture Overview)*
 
 Analytics queries should not be answered by semantic search. They are routed to SQL over `daily_summaries` and return deterministic results (counts, distributions, top values, date lists). The SQL-backed dataset is refreshed by `auto_sync.py`. If the DB path is unavailable at query time, the same structured request falls back to file-backed summary parsing so the analytics lane remains usable.
 
-`query_analytics.py` is now an executor only:
+`query_analyze.py` is now an executor only:
 
 - It accepts **structured analytics arguments**, not natural-language questions.
 - Natural-language parsing belongs in the agent/client layer.
@@ -252,13 +252,13 @@ Analytics queries should not be answered by semantic search. They are routed to 
 - The analytics contract now supports both base intents (`dates_for_value`, `top_values`, `mood_timeseries`, `mood_distribution_by_weekday`) and quick-win aggregate intents (`count_distinct_dates_for_value`, `count_by_period`, `grouped_top_values`, `average_importance`).
 
 Code reference:
-- Tool wrapper: [query_analytics.py](tools/query_analytics.py)
-- Script: [query_analytics.py](scripts/query_analytics.py)
+- Tool wrapper: [memory_analyze.py](tools/memory_analyze.py)
+- Script: [memory_query_analyze.py](memory_scripts/memory_query_analyze.py)
 
 ```mermaid
 flowchart TD
   U["User analytics question\n(trends / counts / top X)"] --> AGENT["Agent/client parser\nconverts NL -> structured args"]
-  AGENT --> QA["query_analytics.py\n(validate + execute)"]
+  AGENT --> QA["memory_query_analyze.py\n(validate + execute)"]
   QA --> SQL["SQL queries on daily_summaries"]
   SQL --> OUT["Deterministic analytics answer\n(+ optional date list)"]
   QA --> FB["Fallback: load _summaries from files"]

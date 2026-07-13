@@ -6,14 +6,14 @@ import math
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(__file__))
-from util.load_config import (
+from memory_util.memory_load_config import (
     get_config_value,
     load_memory_config,
     map_and_filter_entities,
     parse_summary_yaml,
     resolve_paths,
 )
-from db import db_helper
+from memory_db import memory_db_helper as db_helper
 
 config = load_memory_config()
 ACTIVE_MEMORY_DIR, ARCHIVED_MEMORY_DIR = resolve_paths(config)

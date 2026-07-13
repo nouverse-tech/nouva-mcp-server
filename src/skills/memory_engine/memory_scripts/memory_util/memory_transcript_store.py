@@ -3,7 +3,7 @@ import json
 import os
 import re
 
-from util.load_config import load_memory_config, resolve_paths
+from memory_util.memory_load_config import load_memory_config, resolve_paths
 
 
 def load_active_memory_dir():

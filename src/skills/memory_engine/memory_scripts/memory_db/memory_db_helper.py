@@ -4,8 +4,8 @@ import json
 import requests
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from util.load_config import get_config_value, load_memory_config
-from db.analytics_repo import ensure_schema
+from memory_util.memory_load_config import get_config_value, load_memory_config
+from memory_db.memory_analytics_repo import ensure_schema
 
 
 def get_db_connection():

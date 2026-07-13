@@ -45,7 +45,7 @@ def _is_file_empty(file_path: str) -> bool:
 
 def archive_and_clean_local(memory_dir: str, synced_filenames: list, nas) -> None:
     """Inject spine/parent links into files, transfer them to NAS, then delete locally."""
-    from sync.summary_sync import get_previous_date_local_or_nas
+    from memory_sync.memory_summary_sync import get_previous_date_local_or_nas
 
     dates = [f[:10] for f in synced_filenames]
     if not dates:
@@ -116,7 +116,7 @@ def sync_memory_logs(active_memory_dir: str, nas) -> None:
     """Archive daily notes and raw transcripts older than 2 days to NAS."""
     print("--- Archiving Memory Logs (No RAG upload) ---")
 
-    state_path = os.path.join(os.path.dirname(__file__), "../sync-state.json")
+    state_path = os.path.join(os.path.dirname(__file__), "../memory_sync-state.json")
     last_synced_str = "1970-01-01"
     if os.path.exists(state_path):
         try:
