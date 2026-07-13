@@ -12,8 +12,10 @@ metadata = {
     "by latest file. Each write stores a raw transcript turn using 'user:' and "
     "'assistant:' blocks. Default auto-write mode is off: do not call this tool unless "
     "the user explicitly requested a nouva-session transcript command or the current "
-    "session has already enabled auto-write. session_key should follow "
-    "agent:main:{provider}:direct:{user_identifier_from_provider}."
+    "session has already enabled auto-write. session_key MUST strictly follow "
+    "agent:main:{provider}:direct:{user_identifier_from_provider} where {provider} is the "
+    "host platform/app (e.g. 'zed', 'whatsapp', 'trae', 'cursor', 'claudecode') and NEVER "
+    "the AI model name (like gemini, claude, etc)."
   )
 }
 
