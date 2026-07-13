@@ -145,6 +145,12 @@ def sync_memory_logs(active_memory_dir: str, nas) -> None:
         try:
             fd = datetime.datetime.strptime(filename[:-3], "%Y-%m-%d").date()
             if last_synced_date < fd <= limit:
+                date_str = filename[:-3]
+                summary_file = f"{date_str}.summary.md"
+                local_summary_path = os.path.join(memory_dir, "_summaries", summary_file)
+                if not os.path.exists(local_summary_path):
+                    print(f"⚠️ Skipping archive for {date_str} because summary is missing. Will retry summary generation next run.")
+                    continue
                 to_sync.append((fd, filename))
         except ValueError:
             continue
@@ -156,6 +162,11 @@ def sync_memory_logs(active_memory_dir: str, nas) -> None:
         try:
             fd = datetime.datetime.strptime(filename[:10], "%Y-%m-%d").date()
             if fd > limit:
+                continue
+            date_str = filename[:10]
+            summary_file = f"{date_str}.summary.md"
+            local_summary_path = os.path.join(memory_dir, "_summaries", summary_file)
+            if not os.path.exists(local_summary_path):
                 continue
         except ValueError:
             continue
