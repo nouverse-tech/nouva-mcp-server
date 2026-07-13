@@ -43,37 +43,6 @@ async def system_status() -> str:
         disk_res
     ])
 
-@mcp.tool()
-async def run_safe_command(command: str) -> str:
-    """Run a restricted shell command inside the workspace sandbox
-    
-    Args:
-        command: Shell command to run (e.g. 'git status', 'ls -la')
-    """
-    import subprocess
-    
-    blocked_keywords = [";", "&&", "||", "|", ">", "<", "&", "rm ", "sudo", "elevated", "chmod", "chown", "mv "]
-    has_blocked = [k for k in blocked_keywords if k in command]
-    
-    if has_blocked:
-        return f"Error: Command contains blocked characters/keywords ({', '.join(has_blocked)}). Only simple commands are allowed."
-
-    workspace_root = "/root/.openclaw/workspace"
-    try:
-        res = subprocess.run(command, shell=True, cwd=workspace_root, capture_output=True, text=True, timeout=30)
-        return "\n".join([
-            f"Command: {command}",
-            f"Directory: {workspace_root}",
-            "",
-            "=== STDOUT ===",
-            res.stdout or "(no output)",
-            "",
-            "=== STDERR ===",
-            res.stderr or "(no error output)"
-        ])
-    except Exception as e:
-        return f"Error executing command: {str(e)}"
-
 # --- DYNAMIC SKILLS LOADER ---
 
 def load_skills():
