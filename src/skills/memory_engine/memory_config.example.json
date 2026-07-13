@@ -95,7 +95,7 @@
   },
   "llm": {
     "url": "http://localhost:3000/v1/chat/completions",
-    "model": "gemini-3-flash",
+    "model": "gemini-3.1-flash-lite",
     "timeout_seconds": 60
   },
   "chunking": {
