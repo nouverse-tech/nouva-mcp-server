@@ -120,7 +120,7 @@ python3 src/skills/memory_engine/scripts/auto_sync.py
 
 ## Analytics Tool Contract
 
-`memory_analytics` is now a deterministic executor with **structured input only**.
+`memory_analyze` is now a deterministic executor with **structured input only**.
 
 - Do not send natural-language questions directly to the tool.
 - The agent/client must first parse the user's request into explicit arguments.

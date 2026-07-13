@@ -56,7 +56,7 @@ nouva-mcp-server/
 │   │   │   ├── scripts/
 │   │   │   │   ├── auto_sync.py         # Memory auto-sync cron script
 │   │   │   │   ├── query_memory.py      # Hybrid search query engine
-│   │   │   │   ├── query_analytics.py   # Deterministic structured analytics executor
+│   │   │   │   ├── query_analyze.py     # Deterministic structured analytics executor
 │   │   │   │   ├── db/                  # DB helpers and init scripts
 │   │   │   │   │   ├── init_db.py
 │   │   │   │   │   ├── db_helper.py
@@ -66,7 +66,7 @@ nouva-mcp-server/
 │   │   │   │       └── analytics_sync.py
 │   │   │   └── tools/
 │   │   │       ├── query_memory.py # Tool: query_memory
-│   │   │       ├── query_analytics.py # Tool: structured analytics executor
+│   │   │       ├── query_analyze.py # Tool: structured analytics executor
 │   │   │       └── sync_memory.py  # Tool: sync_memory
 │   │   ├── persona_engine/
 │   │   │   ├── README.md      # Persona setup and startup prompt integration
@@ -274,7 +274,7 @@ Then connect using:
 ### Do you need additional editor guidelines?
 
 Connecting to the MCP server is enough for tool discovery. For best results, add a short routing rule in your agent instructions:
-- Use `memory_analytics` for aggregation/time-series questions, but call it with structured arguments only after the agent parses the user's natural-language request. The analytics contract supports date lists, top values, weekday distributions, distinct-date counts, counts by period, grouped top values, and average importance.
+- Use `memory_analyze` for aggregation/time-series questions, but call it with structured arguments only after the agent parses the user's natural-language request. The analytics contract supports date lists, top values, weekday distributions, distinct-date counts, counts by period, grouped top values, and average importance.
 - Use `memory_query` for detailed recall and context.
 - Use `persona_get_prompt` only at new-session bootstrap time when a persona is explicitly selected or a default persona is configured.
 

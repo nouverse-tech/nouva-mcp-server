@@ -76,7 +76,7 @@ flowchart TD
  end
 
  subgraph AnalyticsLane [Analytics Lane]
- AGENT --> |Structured Args| QA[query_analytics.py]
+ AGENT --> |Structured Args| QA[query_analyze.py]
  QA --> |Query SQL| SQL[(Postgres SQL: daily_summaries)]
   SQL --> |Deterministic Results| AGENT
   QA --> |Fallback if DB unavailable| FILES[File-backed summaries]
@@ -238,13 +238,13 @@ In implementation terms, Tier 3 is not performed by `query_memory.py` itself. Th
 
 ---
 
-## 5. Analytics Flow (query_analytics.py)
+## 5. Analytics Flow (query_analyze.py)
 
 *(This section details the **Analytics Lane** shown in the End-to-End Architecture Overview)*
 
 Analytics queries should not be answered by semantic search. They are routed to SQL over `daily_summaries` and return deterministic results (counts, distributions, top values, date lists). The SQL-backed dataset is refreshed by `auto_sync.py`. If the DB path is unavailable at query time, the same structured request falls back to file-backed summary parsing so the analytics lane remains usable.
 
-`query_analytics.py` is now an executor only:
+`query_analyze.py` is now an executor only:
 
 - It accepts **structured analytics arguments**, not natural-language questions.
 - Natural-language parsing belongs in the agent/client layer.
@@ -252,13 +252,13 @@ Analytics queries should not be answered by semantic search. They are routed to 
 - The analytics contract now supports both base intents (`dates_for_value`, `top_values`, `mood_timeseries`, `mood_distribution_by_weekday`) and quick-win aggregate intents (`count_distinct_dates_for_value`, `count_by_period`, `grouped_top_values`, `average_importance`).
 
 Code reference:
-- Tool wrapper: [query_analytics.py](tools/query_analytics.py)
-- Script: [query_analytics.py](scripts/query_analytics.py)
+- Tool wrapper: [query_analyze.py](tools/query_analyze.py)
+- Script: [query_analyze.py](scripts/query_analyze.py)
 
 ```mermaid
 flowchart TD
   U["User analytics question\n(trends / counts / top X)"] --> AGENT["Agent/client parser\nconverts NL -> structured args"]
-  AGENT --> QA["query_analytics.py\n(validate + execute)"]
+  AGENT --> QA["query_analyze.py\n(validate + execute)"]
   QA --> SQL["SQL queries on daily_summaries"]
   SQL --> OUT["Deterministic analytics answer\n(+ optional date list)"]
   QA --> FB["Fallback: load _summaries from files"]
