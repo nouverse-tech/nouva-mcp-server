@@ -47,7 +47,7 @@ async def handler(
     - {"intent":"count_by_period","column":"projects","value":"Nouverse","period":"month"}
     - {"intent":"grouped_top_values","column":"tags","period":"month","start_date":"2025-01-01","end_date":"2025-06-30","limit":5}
     """
-    script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "memory_scripts", "query_analyze.py"))
+    script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "memory_scripts", "memory_query_analyze.py"))
     payload = {
         "intent": intent,
         "column": column,
