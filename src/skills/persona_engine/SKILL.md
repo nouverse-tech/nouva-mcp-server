@@ -49,7 +49,7 @@ Do not use this skill when:
 
 ## Tools
 
-### `mcp_list_personas`
+### `persona_list`
 
 Use this tool to inspect what persona folders exist and whether they are structurally valid.
 
@@ -62,7 +62,7 @@ Returns JSON with:
 
 Use it before persona selection when the client needs deterministic validation.
 
-### `mcp_get_persona_prompt`
+### `persona_get_prompt`
 
 Use this tool to load one persona and return the fully assembled startup prompt.
 
@@ -91,7 +91,7 @@ Recommended flow for a new chat session:
 
 1. Client starts or connects to the MCP server.
 2. Client determines whether persona mode is off or whether `--default-persona=<name>` is active.
-3. If a persona should be loaded, call `mcp_get_persona_prompt`.
+3. If a persona should be loaded, call `persona_get_prompt`.
 4. Insert the returned `prompt` near the beginning of the session bootstrap/system prompt.
 5. Begin ordinary user turns only after the startup prompt is assembled.
 

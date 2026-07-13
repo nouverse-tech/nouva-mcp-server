@@ -1,7 +1,7 @@
 import os
 
 metadata = {
-    "name": "mcp_read_memory_file",
+    "name": "memory_read_file",
     "description": "Read the raw content of a specific memory markdown file using its relative path."
 }
 

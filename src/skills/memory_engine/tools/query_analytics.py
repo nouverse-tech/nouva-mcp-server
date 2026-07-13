@@ -4,7 +4,7 @@ import subprocess
 import json
 
 metadata = {
-    "name": "mcp_query_analytics",
+    "name": "memory_analytics",
     "description": (
         "Run deterministic analytics over daily summaries using STRUCTURED INPUT ONLY. "
         "Do not pass natural-language questions. Supported intents: dates_for_value, "
@@ -12,7 +12,7 @@ metadata = {
         "count_distinct_dates_for_value, count_by_period, grouped_top_values, average_importance. "
         "Supported fields: intent, column, value, start_date, end_date, weekday, "
         "weekday_name, limit, period. "
-        "Use mcp_query_memory for detailed recall."
+        "Use memory_query for detailed recall."
     )
 }
 

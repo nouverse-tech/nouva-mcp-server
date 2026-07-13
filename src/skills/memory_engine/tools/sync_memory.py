@@ -3,7 +3,7 @@ import sys
 import subprocess
 
 metadata = {
-    "name": "mcp_sync_memory",
+    "name": "memory_sync",
     "description": "Run the memory_engine sync pipeline (auto_sync). Generates/reconciles daily summaries, updates Postgres (pgvector + analytics), generates MEMORY_INDEX, and archives daily sessions to the archived memory directory."
 }
 

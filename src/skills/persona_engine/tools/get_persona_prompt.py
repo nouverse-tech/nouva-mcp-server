@@ -3,7 +3,7 @@ import os
 import sys
 
 metadata = {
-  "name": "mcp_get_persona_prompt",
+  "name": "persona_get_prompt",
   "description": (
     "Load a persona pack from personas/<name> and return the combined startup prompt "
     "assembled from IDENTITY.md, SOUL.md, and USER.md. If persona_name is omitted, "
