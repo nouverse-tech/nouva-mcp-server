@@ -43,16 +43,16 @@ def generate_daily_summary(
     prompt = f"""
     Analyze the chat content for {date_str}.
 
-    Controlled vocabulary (use these exact terms when they apply):
+    Controlled vocabulary (prefer these exact terms when they apply):
     {controlled_vocab}
 
     Extract YAML metadata: schema_version: 1, date: {date_str}, people, projects,
-    tags, technologies (technologies/projects strictly from the controlled
-    vocabulary above; people and tags are free extraction. Note that libraries
-    or frameworks like React, Next.js, LangChain should be grouped under technologies),
-    importance 1-10, mood, and uncategorized as a nested object with exactly two
-    keys — technologies, projects — each an array, containing any technology/project
-    term found that is NOT in the controlled vocabulary above (empty array if none).
+    tags, technologies. Put ALL projects and technologies directly into their
+    respective arrays — use the controlled vocabulary term when one matches,
+    otherwise keep the original term as-is (do NOT drop unrecognized terms).
+    People and tags are free extraction. Note that libraries or frameworks like
+    React, Next.js, LangChain should be grouped under technologies.
+    Also extract: importance 1-10, mood.
     Tags MUST represent the main topics discussed that day (topic extraction), not generic metadata.
     Prefer short, consistent, deduplicated tags (1-3 words each). Avoid random casing or synonyms.
     IMPORTANT LANGUAGE RULES:
@@ -234,10 +234,24 @@ def inject_related_dates(
     
     body_text = "\n".join(clean_body_lines).strip()
 
-    # Rebuild 🔗 Links line
+    # Rebuild 🔗 Links line — render ALL entities as wikilinks, not just mapped ones
+    link_mappings_people = config.get("link_mappings", {}).get("people", {})
+    link_mappings_projects = config.get("link_mappings", {}).get("projects", {})
     links = [f"[[{date_str}]]"]
-    links += [f"[[{p}]]" for p in map_and_filter_entities(metadata.get("people", []), "people", config)]
-    links += [f"[[{p}]]" for p in map_and_filter_entities(metadata.get("projects", []), "projects", config)]
+    for p in metadata.get("people", []):
+        if not p:
+            continue
+        resolved = link_mappings_people.get(p.strip().lower()) or p.strip()
+        link = f"[[{resolved}]]"
+        if link not in links:
+            links.append(link)
+    for p in metadata.get("projects", []):
+        if not p:
+            continue
+        resolved = link_mappings_projects.get(p.strip().lower()) or p.strip()
+        link = f"[[{resolved}]]"
+        if link not in links:
+            links.append(link)
     new_links_line = f"🔗 Links: {' · '.join(links)}"
 
     body_text = body_text + f"\n\n{new_links_line}"

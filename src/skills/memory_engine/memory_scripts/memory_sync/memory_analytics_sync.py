@@ -83,12 +83,8 @@ def _normalize_daily_summary(metadata: dict, summary_path: str, config: dict) ->
         if mood.strip().lower() not in allowed_set:
             mood = str(mood_default).strip() if mood_default else "mixed"
 
-    uncategorized = metadata.get("uncategorized", {}) or {}
-    unc_projects = uncategorized.get("projects", []) if isinstance(uncategorized, dict) else []
-    unc_tech = uncategorized.get("technologies", []) if isinstance(uncategorized, dict) else []
-
-    projects = _dedupe_list((metadata.get("projects") or []) + (unc_projects or []))
-    technologies = _dedupe_list((metadata.get("technologies") or []) + (unc_tech or []))
+    projects = _dedupe_list(metadata.get("projects") or [])
+    technologies = _dedupe_list(metadata.get("technologies") or [])
     tags = _dedupe_list(metadata.get("tags") or [])
     people = _dedupe_list(metadata.get("people") or [])
 
