@@ -3,7 +3,7 @@ import sys
 import json
 
 metadata = {
-  "name": "transcript_write",
+  "name": "session_write",
   "description": (
     "Create or append to a session transcript file in active memory using a strict "
     "stable_session_id-based contract. Use mode='create' exactly once for the first "
