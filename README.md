@@ -65,9 +65,12 @@ nouva-mcp-server/
 │   │   │   │       ├── summary_sync.py
 │   │   │   │       └── analytics_sync.py
 │   │   │   └── tools/
-│   │   │       ├── query_memory.py # Tool: query_memory
-│   │   │       ├── query_analyze.py # Tool: structured analytics executor
-│   │   │       └── sync_memory.py  # Tool: sync_memory
+│   │   │       ├── memory_query.py     # Tool: memory_query
+│   │   │       ├── memory_analyze.py   # Tool: memory_analyze
+│   │   │       ├── memory_grep.py      # Tool: memory_grep
+│   │   │       ├── memory_read_file.py # Tool: memory_read_file
+│   │   │       ├── session_write.py    # Tool: session_write
+│   │   │       └── session_manage.py   # Tool: session_manage
 │   │   ├── persona_engine/
 │   │   │   ├── README.md      # Persona setup and startup prompt integration
 │   │   │   ├── SKILL.md       # Agent guidance for persona loading
@@ -75,12 +78,12 @@ nouva-mcp-server/
 │   │   │   │   └── util/
 │   │   │   │       └── persona_loader.py # Persona validation and prompt assembly
 │   │   │   └── tools/
-│   │   │       ├── list_personas.py # Tool: persona_list
-│   │   │       └── get_persona_prompt.py # Tool: persona_get_prompt
+│   │   │       ├── persona_list.py     # Tool: persona_list
+│   │   │       └── persona_get_prompt.py # Tool: persona_get_prompt
 │   │   ├── mcp_management/
 │   │   │   ├── SKILL.md       # Scaffolding guidelines (Resource)
 │   │   │   └── tools/
-│   │   │       └── create_skill.py # Tool: skill_create
+│   │   │       └── skill_create.py     # Tool: skill_create
 │   └── utils/
 ├── personas/                  # Private persona folders + public example template
 ├── requirements.txt           # Python dependencies
