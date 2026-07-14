@@ -150,10 +150,9 @@ Raw transcript writing is handled as a **manual, batch-only** operation, complet
    - `turns_json` (required): the JSON string from step 2.
    - `session_key` (optional): identifies the agent + provider + user, e.g. `agent:main:zed:direct:gadingnst`.
    - `source` (optional): platform name, e.g. `zed`, `whatsapp`.
-   - `stable_session_id` (optional): if omitted, a UUID is auto-generated.
    - `parent_day` (optional): date string `YYYY-MM-DD`, defaults to today UTC.
-4. **Server writes file**: `write_batch_session()` validates the turns, generates a sequential filename (`YYYY-MM-DD-XXXX.md`), writes the header + all turn blocks to the file, and updates `_session_registry.json`.
-5. **Server returns result**: A JSON response with `status`, `filename`, `stable_session_id`, `session_key`, and `turn_count`.
+4. **Server writes file**: `write_batch_session()` validates the turns, generates a unique HHMM filename (`YYYY-MM-DD-HHMM.md`), writes the header + all turn blocks to the file, and updates `_session_registry.json`.
+5. **Server returns result**: A JSON response with `status`, `filename`, `session_key`, and `turn_count`.
 
 #### Output File Format
 
@@ -179,15 +178,15 @@ assistant: Siap, gw buatin...
 - **Manual only**: The tool is never called automatically. The agent must only invoke it when the user explicitly requests it.
 - **Batch only**: All turns are written at once in a single file. No incremental append, no create-then-append lifecycle.
 - **One file per call**: Each invocation always creates a new `.md` file. There is no rewrite or update mode.
+- **Registry**: `_session_registry.json` maps each UUID `session_id` to its filename and metadata.
 - **Simple input contract**: Turns use `{"role": "user" | "assistant", "text": "..."}` — the same shape most LLM clients already use internally.
-- **Registry for deduplication**: `_session_registry.json` maps each `stable_session_id` to its filename, preventing accidental duplicate writes of the same session.
 
 #### Storage Artifacts
 
 | Artifact | Location | Purpose |
 |----------|----------|---------|
-| Transcript file | `active/YYYY-MM-DD-XXXX.md` | Raw conversation log with header + turn blocks |
-| Session registry | `active/_session_registry.json` | Maps `stable_session_id` → filename + metadata |
+| Transcript file | `active/YYYY-MM-DD-HHMM.md` | Raw conversation log with header + turn blocks |
+| Session registry | `active/_session_registry.json` | Maps `session_id` → filename + metadata |
 
 Code references:
 
@@ -211,13 +210,13 @@ sequenceDiagram
   A->>T: session_write(turns_json, session_key, source)
   T->>T: Parse and validate turns_json
   T->>S: write_batch_session(turns, ...)
-  S->>S: Generate sequential filename
+  S->>S: Generate unique HHMM filename
   S->>S: Build header + render turn blocks
   S->>F: Write .md file
-  S->>R: Register stable_session_id to filename
+  S->>R: Register session_id to filename
   S-->>T: Return result
   T-->>A: JSON response with filename and turn_count
-  A-->>U: "Convo saved to 2026-07-14-0001.md (8 turns)"
+  A-->>U: "Convo saved to 2026-07-14-1234.md (8 turns)"
 ```
 
 ---

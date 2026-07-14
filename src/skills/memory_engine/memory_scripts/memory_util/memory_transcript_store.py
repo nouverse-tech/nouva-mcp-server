@@ -63,7 +63,7 @@ def build_now_utc_strings(timestamp_utc=None):
   now = datetime.datetime.now(datetime.timezone.utc)
   display_timestamp = timestamp_utc or now.strftime("%Y-%m-%d %H:%M:%S UTC")
   iso_timestamp = now.isoformat()
-  return display_timestamp, iso_timestamp
+  return display_timestamp, iso_timestamp, now
 
 
 def get_today_utc_date():
@@ -71,20 +71,22 @@ def get_today_utc_date():
   return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
 
 
-def get_next_session_id(memory_dir, date_str):
-  """Find the next sequential session ID for the given date."""
-  pattern = re.compile(rf"^{re.escape(date_str)}-(\d{{4}})\.md$")
-  max_id = 0
-
-  if os.path.exists(memory_dir):
-    for file_name in os.listdir(memory_dir):
-      match = pattern.match(file_name)
-      if match:
-        file_id = int(match.group(1))
-        if file_id > max_id:
-          max_id = file_id
-
-  return max_id + 1
+def get_unique_hhmm_filename(memory_dir, date_str, now_dt):
+  """Generate a unique filename using HHMM format.
+  
+  If the file YYYY-MM-DD-HHMM.md already exists, it increments the minute
+  until a free filename is found.
+  """
+  # Ambil HH dan MM awal dari now_dt
+  current_time = now_dt
+  while True:
+    hhmm = current_time.strftime("%H%M")
+    filename = f"{date_str}-{hhmm}.md"
+    file_path = os.path.join(memory_dir, filename)
+    if not os.path.exists(file_path):
+      return filename
+    # Jika bentrok, tambahkan 1 menit
+    current_time += datetime.timedelta(minutes=1)
 
 
 def validate_turns(turns):
@@ -153,7 +155,6 @@ def write_batch_session(
   memory_dir,
   session_registry,
   turns,
-  stable_session_id=None,
   session_key=None,
   source=None,
   timestamp_utc=None,
@@ -168,7 +169,6 @@ def write_batch_session(
     memory_dir: Active memory directory path.
     session_registry: The loaded session registry dict.
     turns: List of turn objects [{"role": "user"|"assistant", "text": "..."}].
-    stable_session_id: Optional session ID. Auto-generated UUID if not provided.
     session_key: Session key string (e.g. agent:main:zed:direct:gadingnst).
     source: Source platform string (e.g. 'zed', 'whatsapp').
     timestamp_utc: Optional display timestamp override.
@@ -178,22 +178,14 @@ def write_batch_session(
     dict with status, message, filename, stable_session_id, session_key, turn_count.
   """
   validated_turns = validate_turns(turns)
-  now_utc_str, now_iso = build_now_utc_strings(timestamp_utc)
+  now_utc_str, now_iso, now_dt = build_now_utc_strings(timestamp_utc)
   transcript_day = parent_day if parent_day else get_today_utc_date()
-  resolved_session_id = stable_session_id if stable_session_id else str(uuid.uuid4())
+  resolved_session_id = str(uuid.uuid4())
   resolved_session_key = session_key if session_key else "agent:main:unknown:direct:unknown"
   resolved_source = source if source else "unknown"
 
-  # Check for duplicate stable_session_id
-  if session_registry.get(resolved_session_id):
-    raise ValueError(
-      f"A transcript already exists for stable_session_id '{resolved_session_id}'. "
-      "Use a different session ID or omit it to auto-generate one."
-    )
-
-  # Generate sequential filename
-  seq_id = get_next_session_id(memory_dir, transcript_day)
-  filename = f"{transcript_day}-{seq_id:04d}.md"
+  # Generate unique HHMM filename
+  filename = get_unique_hhmm_filename(memory_dir, transcript_day, now_dt)
 
   # Build file content
   header = build_transcript_header(

@@ -93,7 +93,6 @@ Examples:
     {"role": "assistant", "text": "..."}
   ]
   ```
-- `stable_session_id` is optional. If omitted, a UUID is auto-generated.
 - `session_key` pattern: `agent:main:{provider}:direct:{user_identifier}`.
   - `{provider}` is the **host platform** (e.g. `zed`, `whatsapp`, `cursor`, `claudecode`), never an AI model name.
 - `source` identifies the platform (e.g. `zed`, `whatsapp`). Defaults to `unknown` if omitted.

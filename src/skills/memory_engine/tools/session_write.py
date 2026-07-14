@@ -10,7 +10,6 @@ metadata = {
     '[{"role": "user", "text": "..."}, {"role": "assistant", "text": "..."}]. '
     "Each call creates a new .md transcript file. This is a manual-only tool: "
     "only call it when the user explicitly asks to save/record the conversation. "
-    "stable_session_id is optional and auto-generated if omitted. "
     "session_key should follow the pattern agent:main:{provider}:direct:{user_id} "
     "where {provider} is the host platform (e.g. 'zed', 'whatsapp', 'cursor') "
     "and NEVER an AI model name."
@@ -24,7 +23,6 @@ from memory_util.memory_transcript_store import load_active_memory_dir, load_ses
 
 async def handler(
   turns_json: str,
-  stable_session_id: str = None,
   session_key: str = None,
   source: str = None,
   timestamp_utc: str = None,
@@ -55,7 +53,6 @@ async def handler(
       memory_dir=memory_dir,
       session_registry=registry,
       turns=turns,
-      stable_session_id=stable_session_id,
       session_key=session_key,
       source=source,
       timestamp_utc=timestamp_utc,
