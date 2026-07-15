@@ -66,6 +66,7 @@ def generate_daily_summary(
     CRITICAL FORMAT RULES:
     - You MUST output exactly ONE line starting with "🔗 Links: " at the very end of the document.
     - Do NOT output any other links lines, list of links, or loose wiki links outside this single "🔗 Links: " line.
+    - Do NOT use wikilinks [[]] syntax anywhere in the summary body. Only use them in the final "🔗 Links: " line.
     - Format of the links line: 🔗 Links: [[entity1]] · [[entity2]] · [[entity3]]
     """
     payload = {
