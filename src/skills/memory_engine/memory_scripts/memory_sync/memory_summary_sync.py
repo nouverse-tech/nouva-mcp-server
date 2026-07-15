@@ -351,41 +351,46 @@ def generate_memory_index(active_memory_dir: str, archived_memory_dir: str, nas)
             if ls.startswith("### "):
                 capture = True
                 continue
-            if ls.startswith("🔗") or ls.startswith("**🔗") or "🔗" in ls:
+            if "🔗" in ls:
                 break
             if capture:
                 summary_lines.append(ls)
 
         parts = []
         if meta.get("people"):
-            parts.append(f"  - **People:** {', '.join(meta['people'])}")
+            parts.append(f"  - People: {', '.join(meta['people'])}")
         if meta.get("projects"):
-            parts.append(f"  - **Projects:** {', '.join(meta['projects'])}")
+            parts.append(f"  - Projects: {', '.join(meta['projects'])}")
         if meta.get("tags"):
-            parts.append(f"  - **Tags:** {', '.join(meta['tags'])}")
+            parts.append(f"  - Tags: {', '.join(meta['tags'])}")
         if summary_lines:
-            parts.append("  - **Summary:**")
             sentences = []
             for line in summary_lines:
                 clean = re.sub(r"^(?:[-*]|\d+\.)\s*", "", line).strip()
+                # Strip any bold/italic/bold-italic markdown
+                clean = re.sub(r"\*{1,3}(.*?)\*{1,3}", r"\1", clean)
                 if not clean:
                     continue
-                m = re.match(r"^\*\*(.*?)\*\*:\s*(.*)", clean)
+                # Detect "Title: rest" pattern — title must be short,
+                # no digits before colon (avoids matching times like "11:30")
+                m = re.match(r"^([A-Za-z][A-Za-z &/-]{2,48}):\s+(.*)", clean)
                 if m:
                     title = m.group(1).strip()
                     rest = m.group(2).strip()
-                    rest_parts = re.split(r'\.(?:\s+|$)', rest)
-                    first_sentence = rest_parts[0].strip() if rest_parts else rest
+                    seg = re.split(r'\.(?:\s+|$)', rest)
+                    first_sentence = seg[0].strip() if seg else rest
                     if first_sentence and not first_sentence.endswith('.'):
                         first_sentence += '.'
-                    sentences.append(f"**{title}**: {first_sentence}")
+                    sentences.append(f"{title}: {first_sentence}")
                 else:
                     seg = re.split(r'\.(?:\s+|$)', clean)
                     first_sentence = seg[0].strip() if seg else clean
                     if first_sentence and not first_sentence.endswith('.'):
                         first_sentence += '.'
                     sentences.append(first_sentence)
-            parts.append(f"    {' '.join(sentences)}")
+            if sentences:
+                parts.append("  - Summary:")
+                parts.append(f"    {' '.join(sentences)}")
         return "\n".join(parts)
 
     # Load existing index
@@ -403,7 +408,7 @@ def generate_memory_index(active_memory_dir: str, archived_memory_dir: str, nas)
     if os.path.exists(output_path):
         try:
             with open(output_path, "r", encoding="utf-8") as f:
-                for sec in f.read().split("### 📅")[1:]:
+                for sec in f.read().split("### ")[1:]:
                     lines = sec.splitlines()
                     m = date_pattern.search(lines[0]) if lines else None
                     if m:
@@ -448,17 +453,13 @@ def generate_memory_index(active_memory_dir: str, archived_memory_dir: str, nas)
     if new_summaries:
         print(f"🔄 Merged {len(new_summaries)} new/updated summaries into index.")
 
-    lines = [
-        "# MEMORY_INDEX.md - Historical Memory Map",
-        "This file maps daily activities and topics discussed to their respective dates.",
-        "Use this index to find the date of a specific topic, then retrieve the full chat transcript from NAS.\n",
-    ]
+    lines = []
     for date_str in sorted(parsed_index):
         try:
             nice = datetime.datetime.strptime(date_str, "%Y-%m-%d").strftime("%A, %B %d, %Y")
         except Exception:
             nice = date_str
-        lines += [f"### 📅 {nice} ({date_str})", parsed_index[date_str], ""]
+        lines += [f"### {nice} ({date_str})", parsed_index[date_str], ""]
 
     with open(output_path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
