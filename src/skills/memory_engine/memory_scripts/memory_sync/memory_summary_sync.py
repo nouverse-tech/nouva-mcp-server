@@ -370,6 +370,8 @@ def generate_memory_index(active_memory_dir: str, archived_memory_dir: str, nas)
                 clean = re.sub(r"^(?:[-*]|\d+\.)\s*", "", line).strip()
                 # Strip any bold/italic/bold-italic markdown
                 clean = re.sub(r"\*{1,3}(.*?)\*{1,3}", r"\1", clean)
+                # Strip wikilinks [[text]] -> text
+                clean = re.sub(r"\[\[(.*?)\]\]", r"\1", clean)
                 if not clean:
                     continue
                 # Detect "Title: rest" pattern — title must be short,
