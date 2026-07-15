@@ -4,7 +4,7 @@ import subprocess
 
 metadata = {
     "name": "memory_query",
-    "description": "Query Nouva long-term memory for recall (what happened / where was it mentioned). Uses pgvector semantic search to find relevant dates + reads daily summaries (local/NAS) and returns the best matching day summaries with archive path pointers. Use for detail/context recall only. Do not use for counts, trends, top values, grouped analytics, weekday distributions, or time-series aggregation; use memory_analyze instead."
+    "description": "Query Nouva long-term memory for recall (what happened / where was it mentioned). Uses pgvector semantic search to find relevant dates + reads daily summaries (local/NAS) and returns the best matching day summaries with archive path pointers. Use for detail/context recall only. Do not use for counts, trends, top values, grouped analytics, weekday distributions, or time-series aggregation; use memory_analyze instead. IMPORTANT: Always query in English, even if the user's message is in another language."
 }
 
 async def handler(query: str) -> str:
