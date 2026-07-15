@@ -380,8 +380,8 @@ def generate_memory_index(active_memory_dir: str, archived_memory_dir: str, nas)
                         first_sentence += '.'
                     sentences.append(f"**{title}**: {first_sentence}")
                 else:
-                    parts = re.split(r'\.(?:\s+|$)', clean)
-                    first_sentence = parts[0].strip() if parts else clean
+                    seg = re.split(r'\.(?:\s+|$)', clean)
+                    first_sentence = seg[0].strip() if seg else clean
                     if first_sentence and not first_sentence.endswith('.'):
                         first_sentence += '.'
                     sentences.append(first_sentence)
