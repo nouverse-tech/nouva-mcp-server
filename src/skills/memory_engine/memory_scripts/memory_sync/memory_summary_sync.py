@@ -430,7 +430,13 @@ def generate_memory_index(active_memory_dir: str, archived_memory_dir: str, nas)
                     if m:
                         parsed_index[m.group(1)] = "\n".join(lines[1:]).strip()
             index_loaded = True
-            print(f"📖 Loaded {len(parsed_index)} dates from existing MEMORY_INDEX.md.")
+            
+            # Print last date in index
+            if parsed_index:
+                last_date = max(parsed_index.keys())
+                print(f"📖 Loaded {len(parsed_index)} dates from existing MEMORY_INDEX.md. Last entry date: {last_date}")
+            else:
+                print(f"📖 Loaded 0 dates from existing MEMORY_INDEX.md.")
         except Exception as e:
             print(f"⚠️ Failed to parse existing MEMORY_INDEX.md: {e}. Rebuilding.")
             parsed_index, index_loaded = {}, False
