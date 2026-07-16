@@ -267,8 +267,9 @@ def reconcile_missing_summaries(
     controlled_vocab: dict,
     config: dict,
     nas,
+    sync_limit_days: int = 1,
 ) -> None:
-    """Generate .summary.md files for any dates missing a summary (up to today-2)."""
+    """Generate .summary.md files for any dates missing a summary (up to today-sync_limit_days)."""
     os.makedirs(summaries_dir, exist_ok=True)
     all_files = os.listdir(memory_dir)
 
@@ -279,7 +280,7 @@ def reconcile_missing_summaries(
         if f.endswith(".md") and date_pattern.match(f)
     }
 
-    limit = datetime.date.today() - datetime.timedelta(days=2)
+    limit = datetime.date.today() - datetime.timedelta(days=sync_limit_days)
     filtered_dates = {
         d for d in all_dates
         if datetime.datetime.strptime(d, "%Y-%m-%d").date() <= limit
@@ -289,7 +290,7 @@ def reconcile_missing_summaries(
     missing = sorted(filtered_dates - existing)
 
     print(f"📊 Summary Reconciliation Status:")
-    print(f"   - Target limit date (today-2): {limit}")
+    print(f"   - Target limit date (today-{sync_limit_days}): {limit}")
     print(f"   - Total daily note dates found in workspace: {len(filtered_dates)}")
     print(f"   - Already summarized: {len(existing)}")
     print(f"   - Missing summaries to generate: {len(missing)} {missing}")
@@ -312,10 +313,20 @@ def reconcile_missing_summaries(
             with open(daily_note_path, "r", encoding="utf-8", errors="ignore") as f:
                 daily_note_content = f.read()
         else:
-            with open(daily_note_path, "w", encoding="utf-8") as f:
-                f.write(f"# {date_str}")
             daily_note_content = ""
-            print(f"     * 📝 Created missing daily note placeholder for {date_str}")
+            
+        # Ensure the daily note file exists and has the correct header template before summary generation
+        prev_date = get_previous_date_local_or_nas(date_str, memory_dir, nas)
+        header_content = f"# {date_str}"
+        if prev_date:
+            header_content += f"\n\n« [[{prev_date}]] | Timeline Spine | [[{date_str}.summary|📄 View Summary]]"
+        else:
+            header_content += f"\n\n[[{date_str}.summary|📄 View Summary]]"
+
+        # Overwrite/write the daily note with the verified template structure
+        with open(daily_note_path, "w", encoding="utf-8") as f:
+            f.write(header_content + ("\n\n" + daily_note_content.replace(f"# {date_str}", "").strip() if daily_note_content.strip() else ""))
+        print(f"     * 📝 Ensured daily note structure for {date_str}")
 
         raw_content = ""
         for rf in transcripts:
