@@ -288,24 +288,37 @@ def reconcile_missing_summaries(
     existing = {f.replace(".summary.md", "") for f in os.listdir(summaries_dir) if f.endswith(".summary.md")}
     missing = sorted(filtered_dates - existing)
 
+    print(f"📊 Summary Reconciliation Status:")
+    print(f"   - Target limit date (today-2): {limit}")
+    print(f"   - Total daily note dates found in workspace: {len(filtered_dates)}")
+    print(f"   - Already summarized: {len(existing)}")
+    print(f"   - Missing summaries to generate: {len(missing)} {missing}")
+
     if not missing:
-        print("⏭️ No missing summaries to reconcile.")
+        print("   ⏭️ No missing summaries to reconcile.")
         return
 
-    print(f"🔄 Reconciling {len(missing)} missing summaries: {missing}")
     for date_str in missing:
         daily_note_path = os.path.join(memory_dir, f"{date_str}.md")
-        if os.path.exists(daily_note_path):
+        daily_note_exists = os.path.exists(daily_note_path)
+        
+        # Count transcripts
+        transcripts = [f for f in all_files if f.startswith(date_str) and len(f) >= 18]
+        print(f"   ⚙️ Processing {date_str}:")
+        print(f"     * Daily note exists: {daily_note_exists}")
+        print(f"     * Transcripts found: {len(transcripts)} {transcripts}")
+
+        if daily_note_exists:
             with open(daily_note_path, "r", encoding="utf-8", errors="ignore") as f:
                 daily_note_content = f.read()
         else:
             with open(daily_note_path, "w", encoding="utf-8") as f:
                 f.write(f"# {date_str}")
             daily_note_content = ""
-            print(f"📝 Created missing daily note placeholder for {date_str}")
+            print(f"     * 📝 Created missing daily note placeholder for {date_str}")
 
         raw_content = ""
-        for rf in [f for f in all_files if f.startswith(date_str) and len(f) >= 18]:
+        for rf in transcripts:
             with open(os.path.join(memory_dir, rf), "r", encoding="utf-8", errors="ignore") as f:
                 raw_content += f.read() + "\n\n"
 
@@ -320,9 +333,9 @@ def reconcile_missing_summaries(
             )
             with open(os.path.join(summaries_dir, f"{date_str}.summary.md"), "w", encoding="utf-8") as f:
                 f.write(summary)
-            print(f"✅ Summary generated for {date_str}")
+            print(f"     * ✅ Summary generated successfully for {date_str}")
         else:
-            print(f"⚠️ Skipped {date_str}, will retry next run")
+            print(f"     * ⚠️ Skipped {date_str}, will retry next run")
 
 
 def generate_memory_index(active_memory_dir: str, archived_memory_dir: str, nas) -> None:
