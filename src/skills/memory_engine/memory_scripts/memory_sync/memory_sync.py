@@ -6,6 +6,8 @@ import datetime
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+from memory_util.memory_load_config import load_memory_config
+
 # Configuration Constants
 SYNC_LIMIT_DAYS = 1  # Number of days to keep locally before archiving to NAS (e.g. 1 = H-1, 2 = H-2)
 
@@ -133,7 +135,10 @@ def sync_memory_logs(active_memory_dir: str, nas) -> None:
     except Exception:
         last_synced_date = datetime.date(1970, 1, 1)
 
-    limit = datetime.date.today() - datetime.timedelta(days=SYNC_LIMIT_DAYS)
+    # Read SYNC_LIMIT_DAYS from config or default to 1 (H-1)
+    config = load_memory_config()
+    sync_limit_days = config.get("sync_limit_days", 1)
+    limit = datetime.date.today() - datetime.timedelta(days=sync_limit_days)
     memory_dir = active_memory_dir
 
     if not os.path.exists(memory_dir):
