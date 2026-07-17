@@ -6,7 +6,7 @@ from memory_util.memory_load_config import load_memory_config, resolve_paths
 
 metadata = {
     "name": "memory_read_file",
-    "description": "Read a memory file. Requires 'location' (active or archived) and 'path' exactly as shown in search results (e.g. from memory_grep output like '[archived] daily_sessions/2026-07-14/2026-07-14-0903.md')."
+    "description": "Read a memory file by location and path. IMPORTANT: Only use paths that appear EXACTLY in grep/search results. Never guess or fabricate filenames. The 'location' and 'path' must match what was returned by memory_grep (e.g. '[archived] daily_sessions/2026-07-14/2026-07-14-0903.md' means location='archived', path='daily_sessions/2026-07-14/2026-07-14-0903.md')."
 }
 
 
