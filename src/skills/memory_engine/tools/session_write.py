@@ -5,12 +5,13 @@ import sys
 metadata = {
   "name": "session_write",
   "description": (
-    "Write a full conversation transcript as a new session file in active memory. "
-    "Accepts a batch of turns as JSON array with format: "
-    '[{"role": "user", "text": "..."}, {"role": "assistant", "text": "..."}]. '
-    "Each call creates a new .md transcript file. This is a manual-only tool: "
-    "only call it when the user explicitly asks to save/record the conversation. "
-    "session_key should follow the pattern agent:main:{provider}:direct:{user_id} "
+    "Save a conversation session to memory. DO NOT dump the entire chat verbatim. "
+    "Instead, condense into key points: important decisions, events, conclusions, "
+    "action items, and technical details worth remembering. Omit filler, greetings, "
+    "back-and-forth debugging noise, and repetitive content. "
+    "Format: JSON array of turns [{\"role\": \"user\", \"text\": \"...\"}, {\"role\": \"assistant\", \"text\": \"...\"}]. "
+    "Each call creates a new .md transcript file. Only call when user explicitly asks to save. "
+    "session_key pattern: agent:main:{provider}:direct:{user_id} "
     "where {provider} is the host platform (e.g. 'zed', 'whatsapp', 'cursor') "
     "and NEVER an AI model name."
   )
