@@ -235,21 +235,25 @@ def inject_related_dates(
     
     body_text = "\n".join(clean_body_lines).strip()
 
-    # Rebuild 🔗 Links line — render ALL entities as wikilinks, not just mapped ones
+    # Rebuild 🔗 Links line — only include entities defined in link_mappings config
     link_mappings_people = config.get("link_mappings", {}).get("people", {})
     link_mappings_projects = config.get("link_mappings", {}).get("projects", {})
     links = [f"[[{date_str}]]"]
     for p in metadata.get("people", []):
         if not p:
             continue
-        resolved = link_mappings_people.get(p.strip().lower()) or p.strip()
+        resolved = link_mappings_people.get(p.strip().lower())
+        if not resolved:
+            continue
         link = f"[[{resolved}]]"
         if link not in links:
             links.append(link)
     for p in metadata.get("projects", []):
         if not p:
             continue
-        resolved = link_mappings_projects.get(p.strip().lower()) or p.strip()
+        resolved = link_mappings_projects.get(p.strip().lower())
+        if not resolved:
+            continue
         link = f"[[{resolved}]]"
         if link not in links:
             links.append(link)
