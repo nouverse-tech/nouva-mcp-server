@@ -44,13 +44,16 @@ def main():
         active_memory_dir, archived_memory_dir = resolve_paths(config)
         summaries_dir = os.path.join(active_memory_dir, "_summaries")
 
+        # Read SYNC_LIMIT_DAYS from config or default to 1 (H-1)
+        sync_limit_days = config.get("sync_limit_days", 1)
+
         nas_ssh_host = config.get("memory_paths", {}).get("nas_ssh_host")
         nas = NasHelper(archived_memory_dir, nas_ssh_host)
 
         print("1. Reconciling missing summaries...")
         reconcile_missing_summaries(
             active_memory_dir, summaries_dir, archived_memory_dir,
-            controlled_vocab, config, nas
+            controlled_vocab, config, nas, sync_limit_days
         )
 
         print("   Cleaning up Rina mentions in summaries...")

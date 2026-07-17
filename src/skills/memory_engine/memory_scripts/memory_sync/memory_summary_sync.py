@@ -318,12 +318,11 @@ def reconcile_missing_summaries(
         # Ensure the daily note file exists and has the correct header template before summary generation
         prev_date = get_previous_date_local_or_nas(date_str, memory_dir, nas)
         header_content = f"# {date_str}"
-        if prev_date:
-            header_content += f"\n\n« [[{prev_date}]] | Timeline Spine | [[{date_str}.summary|📄 View Summary]]"
-        else:
-            header_content += f"\n\n[[{date_str}.summary|📄 View Summary]]"
-
-        # Overwrite/write the daily note with the verified template structure
+        
+        # We append the timeline spine at the footer of the content if content exists, 
+        # but for the initial file generation we can keep a placeholder.
+        # The actual timeline spine append will be handled by archive_and_clean_local.
+        # So we just write the clean header first.
         with open(daily_note_path, "w", encoding="utf-8") as f:
             f.write(header_content + ("\n\n" + daily_note_content.replace(f"# {date_str}", "").strip() if daily_note_content.strip() else ""))
         print(f"     * 📝 Ensured daily note structure for {date_str}")
