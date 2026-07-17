@@ -14,9 +14,9 @@ Use this skill for Nouva's 2-lane memory system:
 ## Tools
 - `memory_query`: semantic recall tool. Returns the best matching summaries and archive path pointers for follow-up. Use for recall/context only, not for counts, ranking, aggregation, or trend analysis.
 - `memory_analyze`: deterministic analytics executor over daily summaries. Structured input only; the agent must parse natural language before calling it.
-- `memory_grep`: search for a specific keyword or pattern inside all memory markdown files (active and/or archived).
-- `memory_read_file`: read the raw content of a specific memory markdown file using its relative path.
-- `session_write`: write a full conversation transcript as a new session file. Manual-only; call only when the user explicitly asks to save/record the conversation.
+- `memory_grep`: search for a keyword/pattern inside memory files. Parameters: 'query' (required), 'location' (optional: 'active', 'archived', or 'all' — defaults to 'all'). Returns matching lines with file paths.
+- `memory_read_file`: read the raw content of a memory file. Parameters: 'path' (required — use EXACTLY as shown in grep results), 'location' (optional: 'active', 'archived', or omit to auto-search both).
+- `session_write`: save a conversation session to memory. Condense into key points only — important decisions, events, conclusions, action items, and technical details. Do NOT dump entire chat verbatim. Manual-only; call only when the user explicitly asks to save.
 
 ## Routing Rules
 
@@ -81,9 +81,15 @@ Examples:
 
 ## `session_write` Notes
 
-- This is a **manual-only, batch** tool. It writes the entire conversation at once into a new `.md` file.
+- This is a **manual-only, batch** tool. It writes a condensed session into a new `.md` file.
 - Only call this tool when the user explicitly asks to save, record, or log the conversation.
 - **Never** call this tool automatically or per-turn.
+- **DO NOT dump the entire chat verbatim.** Condense into key points:
+  - Important decisions and conclusions
+  - Significant events and milestones
+  - Action items and next steps
+  - Technical details worth remembering
+  - Omit: greetings, filler, back-and-forth debugging noise, repetitive content
 - Input format for `turns_json`: a JSON array of turn objects:
   ```json
   [
