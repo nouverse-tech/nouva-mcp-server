@@ -65,4 +65,20 @@ async def handler(query: str, location: str = "all") -> str:
     header = f"Found {len(results)} matches for '{query}' in {location} memory:"
     if len(results) >= max_results:
         header += " (capped to top 100)"
-    return header + "\n\n" + "\n".join(results)
+
+    # Extract unique file paths for easy reference
+    seen_paths = []
+    for r in results:
+        # Format: [loc] path:line: content
+        try:
+            after_bracket = r.split("] ", 1)[1]
+            file_path = after_bracket.split(":", 1)[0]
+            loc = r.split("]", 1)[0].lstrip("[")
+            entry = f"  - [{loc}] {file_path}"
+            if entry not in seen_paths:
+                seen_paths.append(entry)
+        except Exception:
+            pass
+
+    footer = "\n\nFiles found (use these EXACT paths with memory_read_file):\n" + "\n".join(seen_paths)
+    return header + "\n\n" + "\n".join(results) + footer

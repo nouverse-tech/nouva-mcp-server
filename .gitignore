@@ -5,6 +5,7 @@ dist/
 __pycache__/
 *.pyc
 docker-compose.local.yml
+tmp
 
 # Memory Enging Related
 src/skills/memory_engine/memory_config.json
