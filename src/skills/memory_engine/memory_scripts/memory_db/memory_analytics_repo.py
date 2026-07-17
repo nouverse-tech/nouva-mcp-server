@@ -69,6 +69,27 @@ def upsert_daily_summary(conn, row: dict) -> None:
         cur.close()
 
 
+def get_existing_dates(conn) -> set[datetime.date]:
+    """Return all dates already in the daily_summaries table."""
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT date FROM daily_summaries;")
+        return {r[0] for r in cur.fetchall()}
+    finally:
+        cur.close()
+
+
+def get_latest_date(conn) -> datetime.date | None:
+    """Return the most recent date in daily_summaries, or None."""
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT MAX(date) FROM daily_summaries;")
+        row = cur.fetchone()
+        return row[0] if row and row[0] else None
+    finally:
+        cur.close()
+
+
 def get_dates_for_array_value(conn, column: str, value: str) -> list[datetime.date]:
     if column not in _ARRAY_COLUMNS:
         return []

@@ -1,11 +1,14 @@
 import os
 import sys
 import json
+import hashlib
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 # Root of the OpenClaw workspace on the server
 WORKSPACE_ROOT = "/root/.openclaw/workspace"
+
+_HASH_STATE_PATH = os.path.join(os.path.dirname(__file__), "../openclaw_sync-state.json")
 
 # Maps each core file → list of (nas_subfolder, nas_filename, title, tags)
 CORE_MAPPINGS = {
@@ -34,9 +37,19 @@ CORE_MAPPINGS = {
 
 
 def sync_core_files_to_nas(nas) -> None:
-    """Copy OpenClaw core files (USER.md, SOUL.md, etc.) to NAS, with YAML frontmatter prepended."""
+    """Copy OpenClaw core files to NAS, skipping unchanged files."""
     print("--- Syncing OpenClaw Core Files to NAS ---")
 
+    # Load hash state
+    state = {}
+    if os.path.exists(_HASH_STATE_PATH):
+        try:
+            with open(_HASH_STATE_PATH, "r") as f:
+                state = json.load(f)
+        except Exception:
+            pass
+
+    updated = False
     for local_name, targets in CORE_MAPPINGS.items():
         local_path = os.path.join(WORKSPACE_ROOT, local_name)
         if not os.path.exists(local_path):
@@ -45,6 +58,11 @@ def sync_core_files_to_nas(nas) -> None:
 
         with open(local_path, "r", encoding="utf-8", errors="ignore") as f:
             content = f.read()
+
+        content_hash = hashlib.sha256(content.encode()).hexdigest()
+        if state.get(local_name) == content_hash:
+            print(f"⏭️ {local_name} unchanged, skipping.")
+            continue
 
         for subfolder, nas_name, title, tags in targets:
             yaml_fm = f'---\nschema_version: 1\ntitle: "{title}"\ntags: {json.dumps(tags)}\n---\n'
@@ -62,3 +80,13 @@ def sync_core_files_to_nas(nas) -> None:
             finally:
                 if os.path.exists(tmp_path):
                     os.remove(tmp_path)
+
+        state[local_name] = content_hash
+        updated = True
+
+    if updated:
+        try:
+            with open(_HASH_STATE_PATH, "w") as f:
+                json.dump(state, f, indent=2)
+        except Exception:
+            pass

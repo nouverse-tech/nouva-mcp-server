@@ -1,13 +1,13 @@
-"""
-auto_sync.py — Entry point for the memory_engine sync pipeline.
+"""auto_sync.py — Entry point for the memory_engine sync pipeline.
 
 Steps:
   1. Reconcile missing daily summaries (generate via LLM)
-  2. Sync daily summaries to the analytics SQL table
+  2. Clean up local Rina mentions
   3. Generate/update MEMORY_INDEX.md
-  4. Sync core files to pgvector
+  4. Sync core files to pgvector (incremental, hash-based)
   5. Archive memory logs to NAS
-  6. Sync core files to NAS
+  6. Sync daily summaries to analytics DB (incremental)
+  7. Sync OpenClaw core files to NAS (incremental, hash-based)
 """
 import os
 import sys
@@ -44,7 +44,6 @@ def main():
         active_memory_dir, archived_memory_dir = resolve_paths(config)
         summaries_dir = os.path.join(active_memory_dir, "_summaries")
 
-        # Read SYNC_LIMIT_DAYS from config or default to 1 (H-1)
         sync_limit_days = config.get("sync_limit_days", 1)
 
         nas_ssh_host = config.get("memory_paths", {}).get("nas_ssh_host")
@@ -59,9 +58,6 @@ def main():
         print("   Cleaning up Rina mentions in summaries...")
         cleanup_local_rina_mentions(summaries_dir)
 
-        print("   Syncing daily summaries to analytics DB...")
-        sync_daily_summaries_to_db(config)
-
         print("2. Generating memory index...")
         generate_memory_index(active_memory_dir, archived_memory_dir, nas)
 
@@ -69,9 +65,12 @@ def main():
         sync_vector_files(VECTOR_FILES, WORKSPACE_ROOT)
 
         print("4. Archiving memory logs to NAS...")
-        sync_memory_logs(active_memory_dir, nas)
+        sync_memory_logs(active_memory_dir, nas, sync_limit_days)
 
-        print("5. Syncing OpenClaw core files to NAS...")
+        print("5. Syncing daily summaries to analytics DB...")
+        sync_daily_summaries_to_db(config)
+
+        print("6. Syncing OpenClaw core files to NAS...")
         sync_core_files_to_nas(nas)
 
         print("\n🚀 RAG Smart Sync Finished.")

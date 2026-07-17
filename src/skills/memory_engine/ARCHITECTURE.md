@@ -102,7 +102,7 @@ flowchart TD
 
 The sync process is orchestrated by `auto_sync.py` and is designed to be incremental and idempotent:
 
-- `memory_sync-state.json` is used to drive incremental archival for daily sessions.
+- Incremental archival is driven by checking the latest synced date from DB, NAS archived summaries, and MEMORY_INDEX.md.
 - Summaries are reconciled/created before archival, so the summary layer stays available even after local raw files are cleaned.
 - The summary layer feeds two different downstream products: `daily_summaries` rows for deterministic analytics, and `MEMORY_INDEX.md` for semantic date recall in pgvector.
 - The pgvector lane receives core docs such as `MEMORY_INDEX.md`, `MEMORY.md`, `USER.md`, and related files, not raw `.summary.md` files directly.
@@ -119,11 +119,11 @@ flowchart TD
   AS --> S1["reconcile_missing_summaries()\nensure summaries exist"]
   S1 --> S1b["inject_related_dates()\npgvector-assisted linking\n+ ensure entity stubs on NAS"]
   S1b --> S2["cleanup_local_rina_mentions()"]
-  S2 --> S3["sync_daily_summaries_to_db()\n.summary.md -> daily_summaries"]
-  S3 --> S4["generate_memory_index()\n_summaries -> MEMORY_INDEX.md"]
-  S4 --> S5["sync_core_files()\nMEMORY_INDEX.md + core docs -> pgvector"]
-  S5 --> S6["sync_memory_logs()\narchive daily notes + raw + summaries\n(memory_sync-state.json; delete local)"]
-  S6 --> S7["sync_core_files_to_nas()"]
+  S2 --> S3["generate_memory_index()\n_summaries -> MEMORY_INDEX.md"]
+  S3 --> S4["sync_vector_files()\nMEMORY_INDEX.md -> pgvector (hash-based)"]
+  S4 --> S5["sync_memory_logs()\narchive daily notes + raw + summaries to NAS"]
+  S5 --> S6["sync_daily_summaries_to_db()\n.summary.md -> daily_summaries (incremental)"]
+  S6 --> S7["sync_core_files_to_nas() (hash-based)"]
 ```
 
 ### 3.2 Note on LLM Usage

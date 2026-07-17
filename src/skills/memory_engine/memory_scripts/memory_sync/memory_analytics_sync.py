@@ -5,7 +5,7 @@ import yaml
 
 from memory_db import memory_db_helper as db_helper
 from memory_util.memory_load_config import resolve_paths
-from memory_db.memory_analytics_repo import ensure_schema, upsert_daily_summary
+from memory_db.memory_analytics_repo import ensure_schema, upsert_daily_summary, get_existing_dates
 
 
 def _dedupe_list(values: list) -> list:
@@ -111,29 +111,19 @@ def load_daily_summaries_from_files(config: dict = None) -> list:
     if config is None:
         config = {}
     active_memory_dir, archived_memory_dir = resolve_paths(config)
-    default_active_dir, default_archived_dir = resolve_paths({})
 
     active_summaries_dir = os.path.join(active_memory_dir, "_summaries")
     archived_summaries_dir = os.path.join(archived_memory_dir, "daily_sessions", "_summaries")
-    default_active_summaries_dir = os.path.join(default_active_dir, "_summaries")
-    default_archived_summaries_dir = os.path.join(default_archived_dir, "daily_sessions", "_summaries")
 
     summary_by_filename = {}
 
-    def add_files_from_dir(directory):
-        if os.path.isdir(directory):
-            for f in sorted(os.listdir(directory)):
-                if f.endswith(".summary.md") and not f.startswith("."):
-                    if f not in summary_by_filename:
-                        summary_by_filename[f] = os.path.join(directory, f)
-
-    # Prioritaskan NAS/archived path
-    add_files_from_dir(archived_summaries_dir)
-    add_files_from_dir(active_summaries_dir)
-
-    if not summary_by_filename:
-        add_files_from_dir(default_archived_summaries_dir)
-        add_files_from_dir(default_active_summaries_dir)
+    # Archived (NAS) paths take priority
+    for directory in (archived_summaries_dir, active_summaries_dir):
+        if not os.path.isdir(directory):
+            continue
+        for f in os.listdir(directory):
+            if f.endswith(".summary.md") and not f.startswith(".") and f not in summary_by_filename:
+                summary_by_filename[f] = os.path.join(directory, f)
 
     results = []
     for filename in sorted(summary_by_filename.keys()):
@@ -154,16 +144,23 @@ def sync_daily_summaries_to_db(config: dict = None) -> dict:
     if config is None:
         config = {}
 
-    summaries = load_daily_summaries_from_files(config)
-    if not summaries:
-        return {"ok": True, "synced": 0}
-
     conn = db_helper.get_db_connection()
     try:
         ensure_schema(conn)
-        for s in summaries:
+        existing_dates = get_existing_dates(conn)
+
+        summaries = load_daily_summaries_from_files(config)
+        if not summaries:
+            return {"ok": True, "synced": 0}
+
+        # Only upsert summaries not already in DB
+        new_summaries = [s for s in summaries if s["date"] not in existing_dates]
+        if not new_summaries:
+            return {"ok": True, "synced": 0}
+
+        for s in new_summaries:
             upsert_daily_summary(conn, s)
         conn.commit()
-        return {"ok": True, "synced": len(summaries)}
+        return {"ok": True, "synced": len(new_summaries)}
     finally:
         conn.close()
