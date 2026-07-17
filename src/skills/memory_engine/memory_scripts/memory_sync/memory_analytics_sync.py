@@ -118,35 +118,26 @@ def load_daily_summaries_from_files(config: dict = None) -> list:
     default_active_summaries_dir = os.path.join(default_active_dir, "_summaries")
     default_archived_summaries_dir = os.path.join(default_archived_dir, "daily_sessions", "_summaries")
 
-    summary_files = []
-    if os.path.isdir(archived_summaries_dir):
-        summary_files += [
-            os.path.join(archived_summaries_dir, f)
-            for f in os.listdir(archived_summaries_dir)
-            if f.endswith(".summary.md") and not f.startswith(".")
-        ]
-    if os.path.isdir(active_summaries_dir):
-        summary_files += [
-            os.path.join(active_summaries_dir, f)
-            for f in os.listdir(active_summaries_dir)
-            if f.endswith(".summary.md") and not f.startswith(".")
-        ]
-    if not summary_files:
-        if os.path.isdir(default_archived_summaries_dir):
-            summary_files += [
-                os.path.join(default_archived_summaries_dir, f)
-                for f in os.listdir(default_archived_summaries_dir)
-                if f.endswith(".summary.md") and not f.startswith(".")
-            ]
-        if os.path.isdir(default_active_summaries_dir):
-            summary_files += [
-                os.path.join(default_active_summaries_dir, f)
-                for f in os.listdir(default_active_summaries_dir)
-                if f.endswith(".summary.md") and not f.startswith(".")
-            ]
+    summary_by_filename = {}
+
+    def add_files_from_dir(directory):
+        if os.path.isdir(directory):
+            for f in sorted(os.listdir(directory)):
+                if f.endswith(".summary.md") and not f.startswith("."):
+                    if f not in summary_by_filename:
+                        summary_by_filename[f] = os.path.join(directory, f)
+
+    # Prioritaskan NAS/archived path
+    add_files_from_dir(archived_summaries_dir)
+    add_files_from_dir(active_summaries_dir)
+
+    if not summary_by_filename:
+        add_files_from_dir(default_archived_summaries_dir)
+        add_files_from_dir(default_active_summaries_dir)
 
     results = []
-    for path in sorted(set(summary_files)):
+    for filename in sorted(summary_by_filename.keys()):
+        path = summary_by_filename[filename]
         try:
             with open(path, "r", encoding="utf-8", errors="ignore") as f:
                 content = f.read()
