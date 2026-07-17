@@ -2,7 +2,7 @@ import os
 
 metadata = {
     "name": "memory_grep",
-    "description": "Search for a specific keyword or pattern inside all memory markdown files (active and/or archived). IMPORTANT: Always search using English keywords, since all memory content is stored in English."
+    "description": "Search for a keyword/pattern inside memory markdown files. Always use English keywords. Parameters: 'query' (required), 'location' (optional: 'active', 'archived', or 'all' — defaults to 'all' which searches both)."
 }
 
 import sys
