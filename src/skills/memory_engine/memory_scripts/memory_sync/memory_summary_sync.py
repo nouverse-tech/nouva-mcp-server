@@ -55,6 +55,7 @@ def generate_daily_summary(
     Also extract: importance 1-10, mood.
     Tags MUST represent the main topics discussed that day (topic extraction), not generic metadata.
     Prefer short, consistent, deduplicated tags (1-3 words each). Avoid random casing or synonyms.
+    Tags MUST be lowercase and kebab-case (dashed), e.g. `session-reset`, `ff7-rebirth`, `api-refactor`. No spaces, no CamelCase, no Title Case.
     IMPORTANT LANGUAGE RULES:
     - Write the entire .summary.md in English (YAML + body).
     - If the source content is not English, translate the summary into English.
@@ -64,6 +65,7 @@ def generate_daily_summary(
     Then write a detailed bulleted or numbered list of activities in the "### Today's Summary" section, followed by a "🔗 Links"
     line listing Obsidian wikilinks built from the people and projects fields above.
     CRITICAL FORMAT RULES:
+    - Wrap the YAML metadata in standard YAML frontmatter delimiters: a line with exactly `---`, then the YAML, then another line with exactly `---`. Do NOT use ```yaml code blocks.
     - You MUST output exactly ONE line starting with "🔗 Links: " at the very end of the document.
     - Do NOT output any other links lines, list of links, or loose wiki links outside this single "🔗 Links: " line.
     - Do NOT use wikilinks [[]] syntax anywhere in the summary body. Only use them in the final "🔗 Links: " line.
