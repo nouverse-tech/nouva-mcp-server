@@ -182,6 +182,7 @@ def sync_memory_logs(active_memory_dir: str, nas, sync_limit_days: int = 1) -> N
     print("--- Archiving Memory Logs ---")
 
     last_synced_date = _get_last_synced_date(nas, active_memory_dir)
+    print(f"Last index/DB synced date: {last_synced_date}")
     limit = datetime.date.today() - datetime.timedelta(days=sync_limit_days)
     memory_dir = active_memory_dir
 
@@ -198,7 +199,7 @@ def sync_memory_logs(active_memory_dir: str, nas, sync_limit_days: int = 1) -> N
             continue
         try:
             fd = datetime.datetime.strptime(filename[:-3], "%Y-%m-%d").date()
-            if last_synced_date < fd <= limit:
+            if fd <= limit:
                 date_str = filename[:-3]
                 summary_file = f"{date_str}.summary.md"
                 local_summary_path = os.path.join(memory_dir, "_summaries", summary_file)
