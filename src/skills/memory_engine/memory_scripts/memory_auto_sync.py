@@ -62,7 +62,7 @@ def main():
         generate_memory_index(active_memory_dir, archived_memory_dir, nas)
 
         print("3. Syncing vector files to pgvector...")
-        sync_vector_files(VECTOR_FILES, WORKSPACE_ROOT)
+        sync_vector_files(VECTOR_FILES, active_memory_dir)
 
         print("4. Archiving memory logs to NAS...")
         sync_memory_logs(active_memory_dir, nas, sync_limit_days)
